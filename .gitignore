@@ -1,0 +1,21 @@
+# Exclude all runtime data and secrets across all tools
+*/.git
+*/.tmp
+*/cache
+*/history
+*/logs
+*/sessions
+*/telemetry
+*/tmp
+
+# Specific exclusions
+claude/.claude/.credentials.json
+gemini/.gemini/google_accounts.json
+gemini/.gemini/oauth_creds.json
+codex/.codex/auth.json
+codex/.codex/*.sqlite*
+
+# Root level
+.DS_Store
+*.token
+*.log

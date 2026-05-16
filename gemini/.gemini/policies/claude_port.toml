@@ -1,0 +1,78 @@
+# Gemini CLI Policy - Ported from Claude Config
+# This policy implements a "Default Allow" strategy for most tools,
+# while requiring manual confirmation (ask_user) for dangerous or destructive commands.
+
+# -----------------------------------------------------------------------------
+# 1. HIGH PRIORITY: DANGEROUS COMMANDS (Ask User)
+# These mirror the "ask" list from settings.json
+# -----------------------------------------------------------------------------
+
+[[rule]]
+name = "Destructive Commands"
+toolName = "run_shell_command"
+commandPrefix = [
+    "rm", "rmdir", "shred", "mv", "cp -f", "cp --force",
+    "sudo", "chmod", "chown", "kill", "killall", "pkill",
+    "shutdown", "reboot", "halt", "poweroff",
+    "dd", "mkfs", "fdisk", "mount", "umount", "lvm", "losetup",
+    "sed -i", "sed --in-place", "rsync", "tar -x", "unzip", "zip -d"
+]
+decision = "ask_user"
+priority = 900
+
+[[rule]]
+name = "Git Destructive/Network"
+toolName = "run_shell_command"
+commandPrefix = [
+    "git add", "git commit", "git reset", "git clean", "git push",
+    "git checkout", "git filter-branch", "git merge", "git pull",
+    "git rebase", "git restore", "git switch", "git branch -D",
+    "git branch -f", "git stash", "git tag -d", "git worktree remove",
+    "git submodule deinit", "git reflog expire"
+]
+decision = "ask_user"
+priority = 900
+
+[[rule]]
+name = "Package Managers & System"
+toolName = "run_shell_command"
+commandPrefix = [
+    "brew", "npm uninstall", "npm remove", "npm ci",
+    "pip uninstall", "pip remove", "pip install",
+    "systemctl", "service", "usermod", "useradd", "userdel",
+    "groupadd", "groupdel", "passwd", "visudo", "crontab", "chroot"
+]
+decision = "ask_user"
+priority = 900
+
+[[rule]]
+name = "Cloud & DB Tools"
+toolName = "run_shell_command"
+commandPrefix = [
+    "docker", "docker-compose", "kubectl", "helm", "terraform", "ansible",
+    "ssh", "scp", "mysql", "psql", "redis-cli", "mongosh",
+    "aws", "gcloud", "gsutil", "az", "gh"
+]
+decision = "ask_user"
+priority = 900
+
+# -----------------------------------------------------------------------------
+# 2. MEDIUM PRIORITY: EDIT TOOLS (Allow)
+# Automatically approve file modifications to match Claude's "acceptEdits"
+# -----------------------------------------------------------------------------
+
+[[rule]]
+name = "Allow File Edits"
+toolName = ["replace", "write_file"]
+decision = "allow"
+priority = 500
+
+# -----------------------------------------------------------------------------
+# 3. LOW PRIORITY: DEFAULT ALLOW (Allow everything else)
+# -----------------------------------------------------------------------------
+
+[[rule]]
+name = "Default Allow Shell"
+toolName = "run_shell_command"
+decision = "allow"
+priority = 100

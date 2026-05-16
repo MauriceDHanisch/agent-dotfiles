@@ -1,0 +1,30 @@
+model = "gpt-5.5"
+model_reasoning_effort = "medium"
+personality = "pragmatic"
+
+# Claude-like mode: run commands with broad local access, while prompt rules
+# in rules/default.rules require confirmation for dangerous command families.
+approval_policy = "on-request"
+sandbox_mode = "danger-full-access"
+
+# Keep live web/network behavior explicit when using full access.
+web_search = "cached"
+
+[projects."/home/maurice"]
+trust_level = "trusted"
+
+[projects."/home/maurice/projects/densityNO"]
+trust_level = "trusted"
+
+[tui]
+status_line = ["git-branch", "model-with-reasoning", "fast-mode", "current-dir", "project-name", "context-remaining", "context-window-size", "five-hour-limit", "weekly-limit"]
+terminal_title = ["spinner", "project", "git-branch", "model"]
+notifications = true
+notification_condition = "unfocused"
+status_line_use_colors = true
+
+[tui.model_availability_nux]
+"gpt-5.5" = 3
+
+[notice]
+fast_default_opt_out = true
