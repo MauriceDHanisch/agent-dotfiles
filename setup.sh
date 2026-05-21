@@ -10,13 +10,13 @@ echo ""
 
 # 1. Clone/Update Repo. The repo is a mirror of upstream; plain `git pull`
 # breaks on force-pushes, so hard-reset to origin/main.
-if [ ! -d "$TARGET_DIR" ]; then
-    echo "→ Cloning agent-dotfiles to $TARGET_DIR..."
-    git clone "$REPO_URL" "$TARGET_DIR"
-else
-    echo "→ Updating agent-dotfiles in $TARGET_DIR..."
-    cd "$TARGET_DIR" && git fetch --quiet origin && git reset --quiet --hard origin/main
-fi
+# if [ ! -d "$TARGET_DIR" ]; then
+#     echo "→ Cloning agent-dotfiles to $TARGET_DIR..."
+#     git clone "$REPO_URL" "$TARGET_DIR"
+# else
+#     echo "→ Updating agent-dotfiles in $TARGET_DIR..."
+#     cd "$TARGET_DIR" && git fetch --quiet origin && git reset --quiet --hard origin/main
+# fi
 
 # 2. Determine what to install
 cd "$TARGET_DIR"
@@ -24,7 +24,7 @@ COMPONENTS=("$@")
 
 if [ ${#COMPONENTS[@]} -eq 0 ]; then
     echo "→ No specific agents requested. Installing all components..."
-    COMPONENTS=("claude" "gemini" "codex" "skills")
+    COMPONENTS=("claude" "gemini" "antigravity" "codex" "skills")
 fi
 
 # Remove any broken-symlink ancestors of $1 (so mkdir -p can create real
@@ -133,7 +133,7 @@ echo "→ Linking selected components: ${COMPONENTS[*]}"
 
 for COMPONENT in "${COMPONENTS[@]}"; do
     case $COMPONENT in
-        claude|gemini|codex|skills) install_component "$COMPONENT" ;;
+        claude|gemini|antigravity|codex|skills) install_component "$COMPONENT" ;;
         *) echo "⚠️  Unknown component: $COMPONENT (skipping)" ;;
     esac
 done
