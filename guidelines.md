@@ -21,6 +21,15 @@ These guidelines apply to **all workspaces** and interactions.
 ### 3. Code Verification
 - **Hooks & Tests**: Always run `./.git/hooks/pre-commit`. If the hook is empty or does not exist, you must run the project's tests manually to ensure code integrity.
 
+### 4. Math Formatting in Terminal Output
+- **No LaTeX in chat**: When replying in the terminal (not editing a `.tex`/`.md` file that renders), never use LaTeX delimiters (`$...$`, `$$...$$`, `\frac`, `\sqrt`, etc.). LaTeX source is hard to read unrendered.
+- **Use readable plain-text math**: Write expressions with Unicode symbols and clear spacing.
+  - Superscripts/subscripts: `x²`, `aₙ`, `H₂O` (or `x^2`, `a_n` when Unicode is awkward).
+  - Common symbols: `√`, `∑`, `∫`, `∂`, `∇`, `≈`, `≤`, `≥`, `≠`, `→`, `±`, `×`, `·`, `∞`, Greek letters (`α`, `β`, `θ`, `λ`, `μ`, `σ`, `π`).
+  - Fractions inline as `a / b`; for multi-line derivations use plain-text rows with the `=` signs lined up.
+  - Vectors/matrices: lay out with spacing or simple bracket rows, not `\begin{matrix}`.
+- **Exception**: Use LaTeX only when the target is a file that actually renders it (a `.tex` document, or Markdown the user will view in a LaTeX-rendering viewer). If unsure whether the destination renders, default to plain-text math.
+
 ---
 
 ## II. Coding & Output Standards (Context-Dependent)
