@@ -68,6 +68,20 @@ decision = "allow"
 priority = 500
 
 # -----------------------------------------------------------------------------
+# 2b. WEB ACCESS
+# Web search is auto-allowed (returns snippets only, low risk). web_fetch is
+# intentionally NOT auto-allowed: the policy engine cannot scope it by domain,
+# and silently fetching any URL widens the prompt-injection blast radius given
+# shell/edit are auto-allowed. It falls through to the default (prompt).
+# -----------------------------------------------------------------------------
+
+[[rule]]
+name = "Allow Web Search"
+toolName = "google_web_search"
+decision = "allow"
+priority = 500
+
+# -----------------------------------------------------------------------------
 # 3. LOW PRIORITY: DEFAULT ALLOW (Allow everything else)
 # -----------------------------------------------------------------------------
 
