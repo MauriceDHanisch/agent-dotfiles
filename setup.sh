@@ -4,8 +4,8 @@
 #   curl -fsSL https://raw.githubusercontent.com/MauriceDHanisch/agent-dotfiles/main/setup.sh | bash
 #
 # Clones/updates ~/.agent-dotfiles and symlinks each agent's config into $HOME.
-# With no arguments on an interactive terminal it prompts for which components
-# to install (default: all). Pass names to skip the prompt:
+# With no arguments on an interactive terminal it shows a key-driven picker for
+# which components to install (default: all selected). Pass names to skip it:
 #
 #   curl -fsSL .../setup.sh | bash -s -- claude skills
 set -eo pipefail
@@ -15,7 +15,7 @@ TARGET_DIR="$HOME/.agent-dotfiles"
 BACKUP_DIR="$HOME/.agent-dotfiles-backup/$(date +%Y%m%d-%H%M%S)"
 ALL_COMPONENTS="claude gemini antigravity codex skills"
 
-# ---- styling (scoop-watch palette) ---------------------------------------
+# ---- styling -------------------------------------------------------------
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
     B=$'\e[1m'; D=$'\e[2m'; G=$'\e[38;5;114m'; C=$'\e[38;5;110m'; R=$'\e[31m'; X=$'\e[0m'
 else
@@ -36,45 +36,79 @@ desc_of() {
     esac
 }
 
+# ---- interactive multi-select --------------------------------------------
+# Arrow keys / j,k move; space toggles; a toggles all; enter confirms; q/esc
+# cancels. Reads single keypresses from /dev/tty so it works under curl|bash.
+# Result is written to the global SEL_RESULT.
+SEL_RESULT=""
+menu_select() {
+    local opts; opts=($ALL_COMPONENTS)
+    local n=${#opts[@]}
+    local state=() cur=0 i
+    for ((i = 0; i < n; i++)); do state[$i]=1; done   # all selected by default
+
+    printf '  %s↑/↓ or j/k to move · space to toggle · a all · enter to confirm%s\n' "$D" "$X"
+
+    _menu_draw() {
+        for ((i = 0; i < n; i++)); do
+            local pointer="  " box
+            if [ "$i" -eq "$cur" ]; then pointer="${C}❯${X} "; fi
+            if [ "${state[$i]}" -eq 1 ]; then box="${G}[x]${X}"; else box="${D}[ ]${X}"; fi
+            printf '  %s%s %s%-12s%s %s%s%s\e[K\n' \
+                "$pointer" "$box" "$B" "${opts[$i]}" "$X" "$D" "$(desc_of "${opts[$i]}")" "$X"
+        done
+    }
+    _menu_draw
+
+    local key rest v allon
+    while true; do
+        IFS= read -rsn1 key < /dev/tty || break
+        case "$key" in
+            $'\e')
+                IFS= read -rsn2 -t 1 rest < /dev/tty || rest=""
+                case "$rest" in
+                    '[A') cur=$(((cur - 1 + n) % n)) ;;
+                    '[B') cur=$(((cur + 1) % n)) ;;
+                    '')   die "cancelled" ;;
+                esac ;;
+            k|K) cur=$(((cur - 1 + n) % n)) ;;
+            j|J) cur=$(((cur + 1) % n)) ;;
+            ' ') state[$cur]=$((1 - ${state[$cur]})) ;;
+            a|A)
+                allon=1
+                for ((i = 0; i < n; i++)); do
+                    if [ "${state[$i]}" -eq 0 ]; then allon=0; fi
+                done
+                if [ "$allon" -eq 1 ]; then v=0; else v=1; fi
+                for ((i = 0; i < n; i++)); do state[$i]=$v; done ;;
+            q|Q) die "cancelled" ;;
+            '')  break ;;   # enter
+        esac
+        printf '\e[%dA' "$n"   # back to top of the list, redraw in place
+        _menu_draw
+    done
+
+    SEL_RESULT=""
+    for ((i = 0; i < n; i++)); do
+        if [ "${state[$i]}" -eq 1 ]; then SEL_RESULT="$SEL_RESULT ${opts[$i]}"; fi
+    done
+}
+
 printf '\n%sagent-dotfiles%s %sinstaller%s\n' "$B" "$X" "$D" "$X"
 printf '%s───────────────────────%s\n' "$D" "$X"
 
 command -v git >/dev/null 2>&1 || die "git is required but not found"
 
 # ---- 1. select components ------------------------------------------------
-# Args win (non-interactive). Otherwise prompt on a real terminal; fall back
-# to all when there is no TTY (CI, piped without /dev/tty).
+# Args win (non-interactive). Otherwise show the picker on a usable TTY; fall
+# back to all when there is none (CI, piped without a controlling terminal).
 COMPONENTS="$*"
 if [ -z "$COMPONENTS" ]; then
-    if [ -r /dev/tty ] && [ -z "${CI:-}" ] && [ -z "${NONINTERACTIVE:-}" ]; then
+    if { true < /dev/tty; } 2>/dev/null && [ -z "${CI:-}" ] && [ -z "${NONINTERACTIVE:-}" ]; then
         step "Select components"
-        i=1
-        for c in $ALL_COMPONENTS; do
-            printf '  %s[%d]%s %s%-12s%s %s%s%s\n' "$C" "$i" "$X" "$B" "$c" "$X" "$D" "$(desc_of "$c")" "$X"
-            i=$((i + 1))
-        done
-        printf '\n  %snumbers or names (space/comma separated), or Enter for all%s\n  %s> %s' "$D" "$X" "$C" "$X"
-        reply=""
-        read -r reply < /dev/tty || reply=""
-
-        if [ -z "$reply" ] || [ "$reply" = "all" ]; then
-            COMPONENTS="$ALL_COMPONENTS"
-        else
-            reply="${reply//,/ }"
-            COMPONENTS=""
-            for tok in $reply; do
-                case "$tok" in
-                    1) COMPONENTS="$COMPONENTS claude" ;;
-                    2) COMPONENTS="$COMPONENTS gemini" ;;
-                    3) COMPONENTS="$COMPONENTS antigravity" ;;
-                    4) COMPONENTS="$COMPONENTS codex" ;;
-                    5) COMPONENTS="$COMPONENTS skills" ;;
-                    claude|gemini|antigravity|codex|skills) COMPONENTS="$COMPONENTS $tok" ;;
-                    *) warn "ignoring unknown selection: $tok" ;;
-                esac
-            done
-            [ -z "${COMPONENTS// /}" ] && COMPONENTS="$ALL_COMPONENTS"
-        fi
+        menu_select
+        COMPONENTS="$SEL_RESULT"
+        if [ -z "${COMPONENTS// /}" ]; then COMPONENTS="$ALL_COMPONENTS"; fi
         ok "selected:$(printf ' %s' $COMPONENTS)"
     else
         COMPONENTS="$ALL_COMPONENTS"
