@@ -1,66 +1,117 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+# Agent Dotfiles installer.
+#
+#   curl -fsSL https://raw.githubusercontent.com/MauriceDHanisch/agent-dotfiles/main/setup.sh | bash
+#
+# Clones/updates ~/.agent-dotfiles and symlinks each agent's config into $HOME.
+# With no arguments on an interactive terminal it prompts for which components
+# to install (default: all). Pass names to skip the prompt:
+#
+#   curl -fsSL .../setup.sh | bash -s -- claude skills
+set -eo pipefail
 
-REPO_URL="https://github.com/MauriceDHanisch/agent-dotfiles.git"
+REPO_URL="${AGENT_DOTFILES_REPO:-https://github.com/MauriceDHanisch/agent-dotfiles.git}"
 TARGET_DIR="$HOME/.agent-dotfiles"
 BACKUP_DIR="$HOME/.agent-dotfiles-backup/$(date +%Y%m%d-%H%M%S)"
+ALL_COMPONENTS="claude gemini antigravity codex skills"
 
-# ---- styling -------------------------------------------------------------
-# Color only when stdout is a terminal and NO_COLOR is unset. With
-# `curl ... | bash`, stdout is still the terminal, so colors render fine.
+# ---- styling (scoop-watch palette) ---------------------------------------
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
-    BOLD=$'\033[1m'; DIM=$'\033[2m'; RESET=$'\033[0m'
-    GREEN=$'\033[32m'; YELLOW=$'\033[33m'; BLUE=$'\033[34m'; CYAN=$'\033[36m'; RED=$'\033[31m'
+    B=$'\e[1m'; D=$'\e[2m'; G=$'\e[38;5;114m'; C=$'\e[38;5;110m'; R=$'\e[31m'; X=$'\e[0m'
 else
-    BOLD=""; DIM=""; RESET=""; GREEN=""; YELLOW=""; BLUE=""; CYAN=""; RED=""
+    B=""; D=""; G=""; C=""; R=""; X=""
+fi
+step() { printf '\n%s→%s %s\n' "$C" "$X" "$*"; }
+ok()   { printf '  %s✓%s %s\n' "$G" "$X" "$*"; }
+warn() { printf '  %s•%s %s\n' "$C" "$X" "$*"; }
+die()  { printf '  %s✗%s %s\n' "$R" "$X" "$*" >&2; exit 1; }
+
+desc_of() {
+    case "$1" in
+        claude)      echo "Claude Code     ~/.claude" ;;
+        gemini)      echo "Gemini CLI      ~/.gemini" ;;
+        antigravity) echo "Antigravity     ~/.gemini/antigravity-cli" ;;
+        codex)       echo "Codex           ~/.codex" ;;
+        skills)      echo "Shared skills   ~/.agents/skills" ;;
+    esac
+}
+
+printf '\n%sagent-dotfiles%s %sinstaller%s\n' "$B" "$X" "$D" "$X"
+printf '%s───────────────────────%s\n' "$D" "$X"
+
+command -v git >/dev/null 2>&1 || die "git is required but not found"
+
+# ---- 1. select components ------------------------------------------------
+# Args win (non-interactive). Otherwise prompt on a real terminal; fall back
+# to all when there is no TTY (CI, piped without /dev/tty).
+COMPONENTS="$*"
+if [ -z "$COMPONENTS" ]; then
+    if [ -r /dev/tty ] && [ -z "${CI:-}" ] && [ -z "${NONINTERACTIVE:-}" ]; then
+        step "Select components"
+        i=1
+        for c in $ALL_COMPONENTS; do
+            printf '  %s[%d]%s %s%-12s%s %s%s%s\n' "$C" "$i" "$X" "$B" "$c" "$X" "$D" "$(desc_of "$c")" "$X"
+            i=$((i + 1))
+        done
+        printf '\n  %snumbers or names (space/comma separated), or Enter for all%s\n  %s> %s' "$D" "$X" "$C" "$X"
+        reply=""
+        read -r reply < /dev/tty || reply=""
+
+        if [ -z "$reply" ] || [ "$reply" = "all" ]; then
+            COMPONENTS="$ALL_COMPONENTS"
+        else
+            reply="${reply//,/ }"
+            COMPONENTS=""
+            for tok in $reply; do
+                case "$tok" in
+                    1) COMPONENTS="$COMPONENTS claude" ;;
+                    2) COMPONENTS="$COMPONENTS gemini" ;;
+                    3) COMPONENTS="$COMPONENTS antigravity" ;;
+                    4) COMPONENTS="$COMPONENTS codex" ;;
+                    5) COMPONENTS="$COMPONENTS skills" ;;
+                    claude|gemini|antigravity|codex|skills) COMPONENTS="$COMPONENTS $tok" ;;
+                    *) warn "ignoring unknown selection: $tok" ;;
+                esac
+            done
+            [ -z "${COMPONENTS// /}" ] && COMPONENTS="$ALL_COMPONENTS"
+        fi
+        ok "selected:$(printf ' %s' $COMPONENTS)"
+    else
+        COMPONENTS="$ALL_COMPONENTS"
+    fi
 fi
 
-hr() { printf "%s────────────────────────────────────────────────────%s\n" "$DIM" "$RESET"; }
-section() { printf "\n%s▸ %s%s\n" "$BOLD" "$1" "$RESET"; }
-
-printf "\n%sAI Agent Dotfiles%s  %s· %s%s\n" "$BOLD" "$RESET" "$DIM" "$TARGET_DIR" "$RESET"
-hr
-
-# ---- 1. clone / update ---------------------------------------------------
-# The repo is a mirror of upstream; plain `git pull` breaks on force-pushes,
-# so we hard-reset to origin/main and report the diff explicitly.
-section "Repository"
+# ---- 2. clone / update ---------------------------------------------------
+# The repo mirrors upstream; plain `git pull` breaks on force-pushes, so we
+# hard-reset to origin/main and report the diff explicitly.
+step "Repository"
 repo_files_changed=0
+final_word="synced"
 if [ ! -d "$TARGET_DIR" ]; then
     git clone --quiet "$REPO_URL" "$TARGET_DIR"
     cd "$TARGET_DIR"
-    after="$(git rev-parse --short HEAD)"
-    printf "  %scloned%s  %s@ %s%s\n" "$GREEN" "$RESET" "$DIM" "$after" "$RESET"
+    final_word="installed"
+    ok "cloned ${D}@ $(git rev-parse --short HEAD)${X}"
 else
     cd "$TARGET_DIR"
     before="$(git rev-parse HEAD 2>/dev/null || echo '')"
     git fetch --quiet origin
     git reset --quiet --hard origin/main
     after="$(git rev-parse HEAD)"
-
     if [ "$before" = "$after" ]; then
-        printf "  %salready up to date%s  %s@ %s%s\n" \
-            "$DIM" "$RESET" "$DIM" "$(git rev-parse --short HEAD)" "$RESET"
+        final_word="up to date"
+        ok "already up to date ${D}@ $(git rev-parse --short HEAD)${X}"
     else
+        final_word="updated"
         repo_files_changed="$(git diff --name-only "$before" "$after" | wc -l | tr -d ' ')"
-        printf "  %supdated%s  %s%s → %s%s  %s(%s file(s) changed)%s\n" \
-            "$GREEN" "$RESET" \
-            "$DIM" "$(git rev-parse --short "$before")" "$(git rev-parse --short "$after")" "$RESET" \
-            "$DIM" "$repo_files_changed" "$RESET"
+        ok "updated ${D}$(git rev-parse --short "$before") → $(git rev-parse --short "$after")${X} (${repo_files_changed} file(s) changed)"
         git diff --name-status "$before" "$after" | while IFS=$'\t' read -r status path _; do
-            printf "      %s%-2s%s %s%s%s\n" "$CYAN" "$status" "$RESET" "$DIM" "$path" "$RESET"
+            printf '      %s%-2s%s %s%s%s\n' "$C" "$status" "$X" "$D" "$path" "$X"
         done
     fi
 fi
 
-# ---- 2. select components ------------------------------------------------
-COMPONENTS=("$@")
-if [ ${#COMPONENTS[@]} -eq 0 ]; then
-    COMPONENTS=("claude" "gemini" "antigravity" "codex" "skills")
-fi
-
-# Remove any broken-symlink ancestors of $1 (so mkdir -p can create real
-# directories along the path). Walks up to $HOME.
+# Remove any broken-symlink ancestors of $1 so mkdir -p can rebuild the path.
 clear_broken_ancestors() {
     local p="$1"
     while [ "$p" != "$HOME" ] && [ "$p" != "/" ] && [ -n "$p" ]; do
@@ -71,22 +122,19 @@ clear_broken_ancestors() {
     done
 }
 
-# Totals across all components.
 TOT_LINKED=0; TOT_BACKED=0; TOT_ORPHAN=0; TOT_OK=0
 
 # install_component <package-name>
 #
-# The repo is the source of truth. For every file tracked in the package we
-# ensure $HOME/<rel> is a symlink to the repo file. After linking, removes any
-# orphan symlinks under the package's target tree that point into the repo but
-# whose target no longer exists. Files that exist only locally (history,
-# credentials, sessions, sqlite dbs, ...) are never touched.
+# The repo is the source of truth: for every tracked file we ensure
+# $HOME/<rel> is a symlink to the repo file. Orphan symlinks pointing into the
+# repo whose target vanished are removed. Local-only files are never touched.
 install_component() {
     local pkg="$1"
     local pkg_dir="$TARGET_DIR/$pkg"
 
     if [ ! -d "$pkg_dir" ]; then
-        printf "  %s%-12s%s %snot found, skipping%s\n" "$BOLD" "$pkg" "$RESET" "$YELLOW" "$RESET"
+        warn "${B}${pkg}${X} not found, skipping"
         return
     fi
 
@@ -109,8 +157,7 @@ install_component() {
             fi
         fi
 
-        # A regular file (or dir) that lives inside the repo because an
-        # ancestor was already symlinked? Skip — it's already correct.
+        # A real file living inside the repo via an already-symlinked ancestor?
         if [ -e "$dst" ] && [ ! -L "$dst" ]; then
             local real
             real="$(cd "$(dirname "$dst")" 2>/dev/null && pwd -P)/$(basename "$dst")"
@@ -125,7 +172,7 @@ install_component() {
             clear_broken_ancestors "$backup_path"
             mkdir -p "$(dirname "$backup_path")"
             mv "$dst" "$backup_path"
-            printf "      %s· backup %s → %s%s\n" "$DIM" "$dst" "$backup_path" "$RESET"
+            printf '      %s· backup %s → %s%s\n' "$D" "$dst" "$backup_path" "$X"
             backed_up=$((backed_up + 1))
         fi
 
@@ -135,7 +182,7 @@ install_component() {
         linked=$((linked + 1))
     done < <(find "$pkg_dir" \( -type f -o -type l \) ! -path '*/.git/*')
 
-    # Orphan cleanup
+    # Orphan cleanup.
     local top_dir target_root orphans=0
     top_dir="$(basename "$(find "$pkg_dir" -mindepth 1 -maxdepth 1 -type d | head -1)")"
     target_root="$HOME/$top_dir"
@@ -153,7 +200,7 @@ install_component() {
             esac
             if [ ! -e "$lnk_target" ]; then
                 rm "$link"
-                printf "      %s· orphan removed %s%s\n" "$DIM" "$link" "$RESET"
+                printf '      %s· orphan removed %s%s\n' "$D" "$link" "$X"
                 orphans=$((orphans + 1))
             fi
         done < <(find "$target_root" -type l 2>/dev/null)
@@ -164,36 +211,35 @@ install_component() {
     TOT_ORPHAN=$((TOT_ORPHAN + orphans))
     TOT_OK=$((TOT_OK + skipped))
 
-    # Build a detail string mentioning only what actually happened.
+    # Mention only what actually happened.
     local detail parts=()
-    [ "$linked" -gt 0 ]    && parts+=("${GREEN}${linked} linked${RESET}")
-    [ "$backed_up" -gt 0 ] && parts+=("${YELLOW}${backed_up} backed up${RESET}")
-    [ "$orphans" -gt 0 ]   && parts+=("${YELLOW}${orphans} removed${RESET}")
-    [ "$skipped" -gt 0 ]   && parts+=("${DIM}${skipped} ok${RESET}")
+    [ "$linked" -gt 0 ]    && parts+=("${G}${linked} linked${X}")
+    [ "$backed_up" -gt 0 ] && parts+=("${C}${backed_up} backed up${X}")
+    [ "$orphans" -gt 0 ]   && parts+=("${C}${orphans} removed${X}")
+    [ "$skipped" -gt 0 ]   && parts+=("${D}${skipped} ok${X}")
     if [ ${#parts[@]} -eq 0 ]; then
-        detail="${DIM}nothing to do${RESET}"
+        detail="${D}nothing to do${X}"
     else
         local IFS=", "; detail="${parts[*]}"
     fi
-    printf "  %s%-12s%s %s\n" "$BOLD" "$pkg" "$RESET" "$detail"
+    printf '  %s✓%s %s%-12s%s %s\n' "$G" "$X" "$B" "$pkg" "$X" "$detail"
 }
 
 # ---- 3. install ----------------------------------------------------------
-section "Components"
-for COMPONENT in "${COMPONENTS[@]}"; do
+step "Components"
+for COMPONENT in $COMPONENTS; do
     case $COMPONENT in
         claude|gemini|antigravity|codex|skills) install_component "$COMPONENT" ;;
-        *) printf "  %s%-12s%s %sunknown, skipping%s\n" "$BOLD" "$COMPONENT" "$RESET" "$YELLOW" "$RESET" ;;
+        *) warn "${B}${COMPONENT}${X} unknown, skipping" ;;
     esac
 done
 
 # ---- 4. summary ----------------------------------------------------------
-hr
-printf "%s✓ Complete%s  %s%s repo file(s) updated · %s linked · %s backed up · %s orphan(s) removed · %s unchanged%s\n" \
-    "$GREEN" "$RESET" "$DIM" "$repo_files_changed" "$TOT_LINKED" "$TOT_BACKED" "$TOT_ORPHAN" "$TOT_OK" "$RESET"
-
+printf '\n%s%s✓%s %sagent-dotfiles %s%s\n' "$B" "$G" "$X" "$B" "$final_word" "$X"
+printf '  %s%s repo file(s) updated · %s linked · %s backed up · %s orphan(s) removed · %s unchanged%s\n' \
+    "$D" "$repo_files_changed" "$TOT_LINKED" "$TOT_BACKED" "$TOT_ORPHAN" "$TOT_OK" "$X"
 if [ -d "$BACKUP_DIR" ]; then
-    printf "%s  conflicting files moved to %s%s\n" "$DIM" "$BACKUP_DIR" "$RESET"
+    printf '  %sconflicting files moved to %s%s\n' "$D" "$BACKUP_DIR" "$X"
 fi
-printf "%s  local-only files (history, credentials, sessions) were preserved%s\n" "$DIM" "$RESET"
-printf "%s  install a subset:%s bash setup.sh claude skills\n\n" "$DIM" "$RESET"
+printf '  %slocal-only files (history, credentials, sessions) preserved%s\n' "$D" "$X"
+printf '  %sinstall a subset:%s curl -fsSL .../setup.sh | bash -s -- claude skills\n\n' "$D" "$X"
