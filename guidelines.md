@@ -9,7 +9,7 @@ These guidelines apply to **all workspaces** and interactions.
 ### 1. Execution Strategy
 1. **Check for Local Venv (Priority)**:
    - Look for a directory named `.venv`, `venv`, or `env` in the project root. The user normally uses uv.
-   - *Action*: If found, activate using `source .venv/bin/activate` or use `uv run` (adjust path as needed).
+   - *Action*: If `uv` is available (`command -v uv`), prefer `uv run <cmd>` (e.g. `uv run python ...`, `uv run pytest`), which needs no activation and avoids permission prompts. Otherwise fall back to activating the venv with `source .venv/bin/activate` (adjust path as needed).
 2. **Check for Conda (Fallback)**:
    - If no local venv exists, infer the Conda environment name (often matches project folder name, course number like `144`, or project title).
    - *Action*: Run `conda activate <inferred_name>`. If unsure, run `conda env list`.
