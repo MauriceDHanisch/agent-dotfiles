@@ -9,7 +9,16 @@
       "Bash(git push *)",
       "Bash(git -C * push*)"
     ],
-    "deny": [],
+    "deny": [
+      "Bash(rm -rf /)",
+      "Bash(rm -fr /)",
+      "Bash(rm -rf ~)",
+      "Bash(rm -fr ~)",
+      "Bash(rm -rf ~/)",
+      "Bash(rm -fr ~/)",
+      "Bash(rm -rf --no-preserve-root*)",
+      "Bash(rm * --no-preserve-root*)"
+    ],
     "defaultMode": "acceptEdits"
   },
   "hooks": {
