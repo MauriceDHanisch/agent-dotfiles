@@ -1,14 +1,6 @@
 {
   "permissions": {
     "allow": [],
-    "ask": [
-      "Bash(git commit)",
-      "Bash(git commit *)",
-      "Bash(git -C * commit*)",
-      "Bash(git push)",
-      "Bash(git push *)",
-      "Bash(git -C * push*)"
-    ],
     "deny": [
       "Bash(rm -rf /)",
       "Bash(rm -fr /)",
@@ -19,8 +11,25 @@
       "Bash(rm -rf --no-preserve-root*)",
       "Bash(rm * --no-preserve-root*)"
     ],
+    "ask": [
+      "Bash(git commit)",
+      "Bash(git commit *)",
+      "Bash(git -C * commit*)",
+      "Bash(git push)",
+      "Bash(git push *)",
+      "Bash(git -C * push*)",
+      "Bash(gh pr create*)",
+      "Bash(gh pr comment*)",
+      "Bash(gh issue comment*)",
+      "Bash(glab mr create*)",
+      "Bash(glab mr comment*)",
+      "Bash(glab mr note*)",
+      "Bash(glab issue comment*)",
+      "Bash(glab issue note*)"
+    ],
     "defaultMode": "acceptEdits"
   },
+  "model": "sonnet",
   "hooks": {
     "Notification": [
       {
@@ -81,8 +90,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "agent-deck hook-handler",
-            "async": true
+            "command": "agent-deck hook-handler"
           }
         ]
       }
@@ -115,5 +123,6 @@
     }
   },
   "effortLevel": "medium",
+  "tui": "fullscreen",
   "skipAutoPermissionPrompt": true
 }
