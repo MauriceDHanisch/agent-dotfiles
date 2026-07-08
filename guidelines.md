@@ -30,6 +30,11 @@ These guidelines apply to **all workspaces** and interactions.
   - Vectors/matrices: lay out with spacing or simple bracket rows, not `\begin{matrix}`.
 - **Exception**: Use LaTeX only when the target is a file that actually renders it (a `.tex` document, or Markdown the user will view in a LaTeX-rendering viewer). If unsure whether the destination renders, default to plain-text math.
 
+### 5. Punctuation (Universal, No Exceptions)
+- **Never use the em dash (—)**, and never substitute it with a double hyphen (`--`), en dash (`–`), or similar. This applies everywhere you generate text: chat replies, code comments, docstrings, commit messages, documentation, and any file content.
+- **Use instead**: a comma, a colon, a semicolon, parentheses, or split into two sentences.
+- Note: a `--` used as an actual CLI flag (e.g. `git commit --amend`, `rm -rf --no-preserve-root`) is not a dash and is unaffected by this rule.
+
 ---
 
 ## II. Coding & Output Standards (Context-Dependent)
@@ -64,7 +69,7 @@ These guidelines apply to **all workspaces** and interactions.
   - **Tone**: Academic (ML, Physics or Chemistry papers at high quality journals), technical, and concise. Avoid the "AI accent" (e.g., avoid "It is worth noting," "In conclusion," "Let's delve into," or "I have successfully..."). The quality should match a seasoned author published in Nature or Science.
   - **Vocabulary**: Use simple but precise technical language. Avoid overly complex synonyms when simpler ones work (e.g., use "use" instead of "utilize," "fix" instead of "rectify," "show" instead of "demonstrate").
   - **Style**: Focus on direct technical communication. Use active voice where appropriate for clarity but maintain the rigorous objectivity expected in top-tier journals.
-  - **Punctuation**: Never use the EM dash.
+  - **Punctuation**: See Section I.5 (no em dash, no `--` substitute, anywhere).
 
 ### Context B: Educational & Learning-Focused Work
 *Trigger: prompts mentioning "pset", "homework", "class", "assignment", or academic coursework.*
@@ -78,4 +83,4 @@ These guidelines apply to **all workspaces** and interactions.
   - **Vocabulary**: Use simple, clear, and unpretentious language. Do not use complex synonyms when a simple word works better (e.g., use "use" instead of "utilize").
   - **Content**: Be explicit in your explanations. Fully explain reasoning and derivation in accessible terms.
   - **Structure**: Answer the question directly. Do not add fluff or filler sentences.
-  - **Punctuation**: Never use the EM dash.
+  - **Punctuation**: See Section I.5 (no em dash, no `--` substitute, anywhere).
