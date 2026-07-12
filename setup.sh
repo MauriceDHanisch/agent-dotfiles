@@ -8,12 +8,29 @@
 # which components to install (default: all selected). Pass names to skip it:
 #
 #   curl -fsSL .../setup.sh | bash -s -- claude skills
+#
+# Pass --uninstall to remove the symlinks instead (restoring the most recent
+# pre-install backup for each path, if one exists). The repo checkout at
+# ~/.agent-dotfiles and any local-only files are left untouched:
+#
+#   curl -fsSL .../setup.sh | bash -s -- --uninstall
+#   curl -fsSL .../setup.sh | bash -s -- --uninstall claude skills
 set -eo pipefail
 
 REPO_URL="${AGENT_DOTFILES_REPO:-https://github.com/MauriceDHanisch/agent-dotfiles.git}"
 TARGET_DIR="$HOME/.agent-dotfiles"
 BACKUP_DIR="$HOME/.agent-dotfiles-backup/$(date +%Y%m%d-%H%M%S)"
 ALL_COMPONENTS="claude gemini antigravity codex skills"
+
+MODE="install"
+args=()
+for a in "$@"; do
+    case "$a" in
+        --uninstall) MODE="uninstall" ;;
+        *) args+=("$a") ;;
+    esac
+done
+set -- "${args[@]}"
 
 # ---- styling -------------------------------------------------------------
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
@@ -94,10 +111,18 @@ menu_select() {
     done
 }
 
-printf '\n%sagent-dotfiles%s %sinstaller%s\n' "$B" "$X" "$D" "$X"
+if [ "$MODE" = "uninstall" ]; then
+    printf '\n%sagent-dotfiles%s %suninstaller%s\n' "$B" "$X" "$D" "$X"
+else
+    printf '\n%sagent-dotfiles%s %sinstaller%s\n' "$B" "$X" "$D" "$X"
+fi
 printf '%s───────────────────────%s\n' "$D" "$X"
 
 command -v git >/dev/null 2>&1 || die "git is required but not found"
+
+if [ "$MODE" = "uninstall" ] && [ ! -d "$TARGET_DIR" ]; then
+    die "nothing to uninstall, $TARGET_DIR not found"
+fi
 
 # ---- 1. select components ------------------------------------------------
 # Args win (non-interactive). Otherwise show the picker on a usable TTY; fall
@@ -115,33 +140,37 @@ if [ -z "$COMPONENTS" ]; then
     fi
 fi
 
-# ---- 2. clone / update ---------------------------------------------------
+# ---- 2. clone / update (install only; uninstall leaves the repo alone) ---
 # The repo mirrors upstream; plain `git pull` breaks on force-pushes, so we
 # hard-reset to origin/main and report the diff explicitly.
-step "Repository"
 repo_files_changed=0
 final_word="synced"
-if [ ! -d "$TARGET_DIR" ]; then
-    git clone --quiet "$REPO_URL" "$TARGET_DIR"
+if [ "$MODE" = "uninstall" ]; then
     cd "$TARGET_DIR"
-    final_word="installed"
-    ok "cloned ${D}@ $(git rev-parse --short HEAD)${X}"
 else
-    cd "$TARGET_DIR"
-    before="$(git rev-parse HEAD 2>/dev/null || echo '')"
-    git fetch --quiet origin
-    git reset --quiet --hard origin/main
-    after="$(git rev-parse HEAD)"
-    if [ "$before" = "$after" ]; then
-        final_word="up to date"
-        ok "already up to date ${D}@ $(git rev-parse --short HEAD)${X}"
+    step "Repository"
+    if [ ! -d "$TARGET_DIR" ]; then
+        git clone --quiet "$REPO_URL" "$TARGET_DIR"
+        cd "$TARGET_DIR"
+        final_word="installed"
+        ok "cloned ${D}@ $(git rev-parse --short HEAD)${X}"
     else
-        final_word="updated"
-        repo_files_changed="$(git diff --name-only "$before" "$after" | wc -l | tr -d ' ')"
-        ok "updated ${D}$(git rev-parse --short "$before") → $(git rev-parse --short "$after")${X} (${repo_files_changed} file(s) changed)"
-        git diff --name-status "$before" "$after" | while IFS=$'\t' read -r status path _; do
-            printf '      %s%-2s%s %s%s%s\n' "$C" "$status" "$X" "$D" "$path" "$X"
-        done
+        cd "$TARGET_DIR"
+        before="$(git rev-parse HEAD 2>/dev/null || echo '')"
+        git fetch --quiet origin
+        git reset --quiet --hard origin/main
+        after="$(git rev-parse HEAD)"
+        if [ "$before" = "$after" ]; then
+            final_word="up to date"
+            ok "already up to date ${D}@ $(git rev-parse --short HEAD)${X}"
+        else
+            final_word="updated"
+            repo_files_changed="$(git diff --name-only "$before" "$after" | wc -l | tr -d ' ')"
+            ok "updated ${D}$(git rev-parse --short "$before") → $(git rev-parse --short "$after")${X} (${repo_files_changed} file(s) changed)"
+            git diff --name-status "$before" "$after" | while IFS=$'\t' read -r status path _; do
+                printf '      %s%-2s%s %s%s%s\n' "$C" "$status" "$X" "$D" "$path" "$X"
+            done
+        fi
     fi
 fi
 
@@ -259,21 +288,99 @@ install_component() {
     printf '  %s✓%s %s%-12s%s %s\n' "$G" "$X" "$B" "$pkg" "$X" "$detail"
 }
 
-# ---- 3. install ----------------------------------------------------------
+# uninstall_component <package-name>
+#
+# For every repo-tracked file, remove $HOME/<rel> only if it is (still) a
+# symlink resolving into the repo. Anything else (a local file the user put
+# there since) is left alone. If a pre-install backup exists for that path,
+# the most recent one is restored in its place.
+uninstall_component() {
+    local pkg="$1"
+    local pkg_dir="$TARGET_DIR/$pkg"
+
+    if [ ! -d "$pkg_dir" ]; then
+        warn "${B}${pkg}${X} not found, skipping"
+        return
+    fi
+
+    local removed=0 restored=0 skipped=0
+    while IFS= read -r src; do
+        local rel="${src#$pkg_dir/}"
+        local dst="$HOME/$rel"
+
+        if [ ! -L "$dst" ]; then
+            skipped=$((skipped + 1)); continue
+        fi
+        local resolved
+        resolved="$(readlink -f "$dst" 2>/dev/null || true)"
+        case "$resolved" in
+            "$TARGET_DIR"/*) ;;
+            *) skipped=$((skipped + 1)); continue ;;
+        esac
+
+        rm "$dst"
+        removed=$((removed + 1))
+
+        local latest_backup=""
+        if [ -d "$HOME/.agent-dotfiles-backup" ]; then
+            latest_backup="$(find "$HOME/.agent-dotfiles-backup" -mindepth 2 -path "*/$rel" -not -path '*/.git/*' 2>/dev/null | sort | tail -1)"
+        fi
+        if [ -n "$latest_backup" ]; then
+            clear_broken_ancestors "$dst"
+            mkdir -p "$(dirname "$dst")"
+            mv "$latest_backup" "$dst"
+            printf '      %s· restored %s ← %s%s\n' "$D" "$dst" "$latest_backup" "$X"
+            restored=$((restored + 1))
+        fi
+    done < <(find "$pkg_dir" \( -type f -o -type l \) ! -path '*/.git/*')
+
+    TOT_REMOVED=$((TOT_REMOVED + removed))
+    TOT_RESTORED=$((TOT_RESTORED + restored))
+    TOT_OK=$((TOT_OK + skipped))
+
+    local detail parts=()
+    [ "$removed" -gt 0 ]  && parts+=("${C}${removed} removed${X}")
+    [ "$restored" -gt 0 ] && parts+=("${G}${restored} restored${X}")
+    [ "$skipped" -gt 0 ]  && parts+=("${D}${skipped} skipped${X}")
+    if [ ${#parts[@]} -eq 0 ]; then
+        detail="${D}nothing to do${X}"
+    else
+        local IFS=", "; detail="${parts[*]}"
+    fi
+    printf '  %s✓%s %s%-12s%s %s\n' "$G" "$X" "$B" "$pkg" "$X" "$detail"
+}
+
+# ---- 3. install / uninstall -----------------------------------------------
 step "Components"
+TOT_REMOVED=0; TOT_RESTORED=0
 for COMPONENT in $COMPONENTS; do
     case $COMPONENT in
-        claude|gemini|antigravity|codex|skills) install_component "$COMPONENT" ;;
+        claude|gemini|antigravity|codex|skills)
+            if [ "$MODE" = "uninstall" ]; then
+                uninstall_component "$COMPONENT"
+            else
+                install_component "$COMPONENT"
+            fi ;;
         *) warn "${B}${COMPONENT}${X} unknown, skipping" ;;
     esac
 done
 
 # ---- 4. summary ----------------------------------------------------------
-printf '\n%s%s✓%s %sagent-dotfiles %s%s\n' "$B" "$G" "$X" "$B" "$final_word" "$X"
-printf '  %s%s repo file(s) updated · %s linked · %s backed up · %s orphan(s) removed · %s unchanged%s\n' \
-    "$D" "$repo_files_changed" "$TOT_LINKED" "$TOT_BACKED" "$TOT_ORPHAN" "$TOT_OK" "$X"
-if [ -d "$BACKUP_DIR" ]; then
-    printf '  %sconflicting files moved to %s%s\n' "$D" "$BACKUP_DIR" "$X"
+if [ "$MODE" = "uninstall" ]; then
+    printf '\n%s%s✓%s %sagent-dotfiles uninstalled%s\n' "$B" "$G" "$X" "$B" "$X"
+    printf '  %s%s symlink(s) removed · %s restored from backup · %s left alone (not ours)%s\n' \
+        "$D" "$TOT_REMOVED" "$TOT_RESTORED" "$TOT_OK" "$X"
+    printf '  %srepo checkout kept at %s (delete manually if not wanted)%s\n' "$D" "$TARGET_DIR" "$X"
+    printf '  %slocal-only files (history, credentials, sessions) preserved%s\n' "$D" "$X"
+    printf '  %sreinstall:%s curl -fsSL .../setup.sh | bash\n\n' "$D" "$X"
+else
+    printf '\n%s%s✓%s %sagent-dotfiles %s%s\n' "$B" "$G" "$X" "$B" "$final_word" "$X"
+    printf '  %s%s repo file(s) updated · %s linked · %s backed up · %s orphan(s) removed · %s unchanged%s\n' \
+        "$D" "$repo_files_changed" "$TOT_LINKED" "$TOT_BACKED" "$TOT_ORPHAN" "$TOT_OK" "$X"
+    if [ -d "$BACKUP_DIR" ]; then
+        printf '  %sconflicting files moved to %s%s\n' "$D" "$BACKUP_DIR" "$X"
+    fi
+    printf '  %slocal-only files (history, credentials, sessions) preserved%s\n' "$D" "$X"
+    printf '  %sinstall a subset:%s curl -fsSL .../setup.sh | bash -s -- claude skills\n' "$D" "$X"
+    printf '  %suninstall:%s curl -fsSL .../setup.sh | bash -s -- --uninstall\n\n' "$D" "$X"
 fi
-printf '  %slocal-only files (history, credentials, sessions) preserved%s\n' "$D" "$X"
-printf '  %sinstall a subset:%s curl -fsSL .../setup.sh | bash -s -- claude skills\n\n' "$D" "$X"

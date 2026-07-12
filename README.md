@@ -17,6 +17,19 @@ curl -fsSL https://raw.githubusercontent.com/MauriceDHanisch/agent-dotfiles/main
 
 Valid components: `claude`, `gemini`, `codex`, `skills`.
 
+## Uninstall
+
+Removes the symlinks this installer created, restoring the most recent pre-install backup for each path if one exists. The repo checkout at `~/.agent-dotfiles` and any local-only files are left untouched:
+```bash
+curl -fsSL https://raw.githubusercontent.com/MauriceDHanisch/agent-dotfiles/main/setup.sh | bash -s -- --uninstall
+```
+
+To reinstall from scratch, uninstall then install again:
+```bash
+curl -fsSL https://raw.githubusercontent.com/MauriceDHanisch/agent-dotfiles/main/setup.sh | bash -s -- --uninstall
+curl -fsSL https://raw.githubusercontent.com/MauriceDHanisch/agent-dotfiles/main/setup.sh | bash
+```
+
 ## Structure
 
 This repository uses a "dotfiles" approach where multiple tool configurations are stored in one place and symlinked to your home directory.

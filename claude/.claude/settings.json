@@ -1,15 +1,33 @@
 {
-  "effortLevel": "medium",
-  "enabledPlugins": {
-    "agent-deck@agent-deck": true
-  },
-  "extraKnownMarketplaces": {
-    "agent-deck": {
-      "source": {
-        "source": "github",
-        "repo": "asheshgoplani/agent-deck"
-      }
-    }
+  "permissions": {
+    "allow": [],
+    "deny": [
+      "Bash(rm -rf /)",
+      "Bash(rm -fr /)",
+      "Bash(rm -rf ~)",
+      "Bash(rm -fr ~)",
+      "Bash(rm -rf ~/)",
+      "Bash(rm -fr ~/)",
+      "Bash(rm -rf --no-preserve-root*)",
+      "Bash(rm * --no-preserve-root*)"
+    ],
+    "ask": [
+      "Bash(git commit)",
+      "Bash(git commit *)",
+      "Bash(git -C * commit*)",
+      "Bash(git push)",
+      "Bash(git push *)",
+      "Bash(git -C * push*)",
+      "Bash(gh pr create*)",
+      "Bash(gh pr comment*)",
+      "Bash(gh issue comment*)",
+      "Bash(glab mr create*)",
+      "Bash(glab mr comment*)",
+      "Bash(glab mr note*)",
+      "Bash(glab issue comment*)",
+      "Bash(glab issue note*)"
+    ],
+    "defaultMode": "acceptEdits"
   },
   "hooks": {
     "Notification": [
@@ -88,41 +106,22 @@
       }
     ]
   },
-  "model": "sonnet",
-  "permissions": {
-    "allow": [],
-    "deny": [
-      "Bash(rm -rf /)",
-      "Bash(rm -fr /)",
-      "Bash(rm -rf ~)",
-      "Bash(rm -fr ~)",
-      "Bash(rm -rf ~/)",
-      "Bash(rm -fr ~/)",
-      "Bash(rm -rf --no-preserve-root*)",
-      "Bash(rm * --no-preserve-root*)"
-    ],
-    "ask": [
-      "Bash(git commit)",
-      "Bash(git commit *)",
-      "Bash(git -C * commit*)",
-      "Bash(git push)",
-      "Bash(git push *)",
-      "Bash(git -C * push*)",
-      "Bash(gh pr create*)",
-      "Bash(gh pr comment*)",
-      "Bash(gh issue comment*)",
-      "Bash(glab mr create*)",
-      "Bash(glab mr comment*)",
-      "Bash(glab mr note*)",
-      "Bash(glab issue comment*)",
-      "Bash(glab issue note*)"
-    ],
-    "defaultMode": "acceptEdits"
-  },
-  "skipAutoPermissionPrompt": true,
   "statusLine": {
     "type": "command",
     "command": "bash ~/.claude/statusline.sh"
   },
-  "tui": "fullscreen"
+  "enabledPlugins": {
+    "agent-deck@agent-deck": true
+  },
+  "extraKnownMarketplaces": {
+    "agent-deck": {
+      "source": {
+        "source": "github",
+        "repo": "asheshgoplani/agent-deck"
+      }
+    }
+  },
+  "effortLevel": "medium",
+  "tui": "fullscreen",
+  "skipAutoPermissionPrompt": true
 }
