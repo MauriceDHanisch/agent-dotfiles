@@ -157,19 +157,37 @@ else
     else
         cd "$TARGET_DIR"
         before="$(git rev-parse HEAD 2>/dev/null || echo '')"
-        git fetch --quiet origin
-        git reset --quiet --hard origin/main
-        after="$(git rev-parse HEAD)"
-        if [ "$before" = "$after" ]; then
-            final_word="up to date"
-            ok "already up to date ${D}@ $(git rev-parse --short HEAD)${X}"
+        # Stray untracked files (leftovers from an old copy, a previous script
+        # version, etc.) or filesystem quirks on some shared/HPC mounts can
+        # make reset --hard fail with "unable to create file X: File exists".
+        # git clean (which respects .gitignore, so credentials/history/
+        # sessions/cache are untouched) handles the common case; if the sync
+        # still fails for any reason, fall back to a full re-clone, since this
+        # directory is a disposable mirror of upstream, never a place for
+        # local work.
+        if git fetch --quiet origin 2>/dev/null \
+            && git clean -fd --quiet 2>/dev/null \
+            && git reset --quiet --hard origin/main 2>/dev/null; then
+            after="$(git rev-parse HEAD)"
+            if [ "$before" = "$after" ]; then
+                final_word="up to date"
+                ok "already up to date ${D}@ $(git rev-parse --short HEAD)${X}"
+            else
+                final_word="updated"
+                repo_files_changed="$(git diff --name-only "$before" "$after" | wc -l | tr -d ' ')"
+                ok "updated ${D}$(git rev-parse --short "$before") → $(git rev-parse --short "$after")${X} (${repo_files_changed} file(s) changed)"
+                git diff --name-status "$before" "$after" | while IFS=$'\t' read -r status path _; do
+                    printf '      %s%-2s%s %s%s%s\n' "$C" "$status" "$X" "$D" "$path" "$X"
+                done
+            fi
         else
-            final_word="updated"
-            repo_files_changed="$(git diff --name-only "$before" "$after" | wc -l | tr -d ' ')"
-            ok "updated ${D}$(git rev-parse --short "$before") → $(git rev-parse --short "$after")${X} (${repo_files_changed} file(s) changed)"
-            git diff --name-status "$before" "$after" | while IFS=$'\t' read -r status path _; do
-                printf '      %s%-2s%s %s%s%s\n' "$C" "$status" "$X" "$D" "$path" "$X"
-            done
+            warn "existing checkout looks broken, re-cloning fresh"
+            cd "$HOME"
+            rm -rf "$TARGET_DIR"
+            git clone --quiet "$REPO_URL" "$TARGET_DIR"
+            cd "$TARGET_DIR"
+            final_word="installed"
+            ok "re-cloned ${D}@ $(git rev-parse --short HEAD)${X}"
         fi
     fi
 fi
