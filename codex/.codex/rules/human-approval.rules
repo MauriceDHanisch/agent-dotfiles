@@ -1,0 +1,26 @@
+# Route externally visible Git and collaboration actions through Auto-review.
+
+_HUMAN_APPROVAL_PREFIXES = [
+    ["git", "commit"],
+    ["git", "push"],
+    ["gh", "pr", "create"],
+    ["gh", "pr", "comment"],
+    ["gh", "pr", "review"],
+    ["gh", "issue", "create"],
+    ["gh", "issue", "comment"],
+    ["gh", "api"],
+    ["glab", "mr", "create"],
+    ["glab", "mr", "comment"],
+    ["glab", "mr", "note"],
+    ["glab", "issue", "create"],
+    ["glab", "issue", "comment"],
+    ["glab", "issue", "note"],
+    ["glab", "api"],
+]
+
+for prefix in _HUMAN_APPROVAL_PREFIXES:
+    prefix_rule(
+        pattern = prefix,
+        decision = "prompt",
+        justification = "This external action requires explicit human approval.",
+    )
