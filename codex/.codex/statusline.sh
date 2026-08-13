@@ -96,6 +96,7 @@ agent_state_color() {
 
 model=$(json '.model.display_name // "Codex"')
 effort=$(json '.effort.level // "none"')
+fast_mode=$(json '.service_tier.fast_enabled // false')
 cwd=$(json '.workspace.current_dir // "."')
 project=$(basename "$cwd")
 agent_state=$(json '.agent_state // "idle"')
@@ -167,7 +168,11 @@ fi
 
 five_reset=$(relative_time "$five_hour_reset")
 seven_reset=$(weekly_reset_time "$seven_day_reset")
-echo "${CYAN}[${model}]${RESET} ${MUTED}⚙ ${effort}${RESET} ${DIM}│${RESET} ${GREEN}>_${RESET} ${WHITE}${project}${RESET}${git_summary:+ ${DIM}│${RESET} ${BLUE}⎇${RESET} ${git_summary}}"
+fast_status=" ${MUTED}○ fast off${RESET}"
+if [[ "$fast_mode" == "true" ]]; then
+    fast_status=" ${YELLOW}ϟ fast on${RESET}"
+fi
+echo "${CYAN}[${model}]${RESET} ${MUTED}⚙ ${effort}${RESET}${fast_status} ${DIM}│${RESET} ${GREEN}>_${RESET} ${WHITE}${project}${RESET}${git_summary:+ ${DIM}│${RESET} ${BLUE}⎇${RESET} ${git_summary}}"
 if ((context_size > 0)); then
     echo "${MUTED}◒ context:${RESET} ${context_color}${context_pct}% used${RESET} $(bar "$context_pct") ${MUTED}· $(format_tokens "$context_used") / $(format_tokens "$context_size")${RESET}${last_turn:+ ${DIM}│${RESET} ${MAGENTA}last:${RESET} ${last_turn}}"
 else
