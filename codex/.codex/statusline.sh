@@ -97,6 +97,9 @@ agent_state_color() {
 model=$(json '.model.display_name // "Codex"')
 effort=$(json '.effort.level // "none"')
 fast_mode=$(json '.service_tier.fast_enabled // false')
+conversation_kind=$(json '.conversation.kind // "main"')
+active_agents=$(json '.conversation.active_agents // 0')
+agent_label=$(json '.conversation.agent_label // empty')
 cwd=$(json '.workspace.current_dir // "."')
 project=$(basename "$cwd")
 agent_state=$(json '.agent_state // "idle"')
@@ -168,14 +171,24 @@ fi
 
 five_reset=$(relative_time "$five_hour_reset")
 seven_reset=$(weekly_reset_time "$seven_day_reset")
+five_hour_status=''
+if ((five_hour > 0)); then
+    five_hour_status="${LIMITS}5h ${five_hour}%${RESET}${five_reset:+ ${DIM}${LIMITS}(${five_reset})${RESET}} ${DIM}│${RESET} "
+fi
 fast_status=" ${MUTED}○ fast off${RESET}"
 if [[ "$fast_mode" == "true" ]]; then
     fast_status=" ${YELLOW}ϟ fast on${RESET}"
 fi
+conversation_status=''
+case "$conversation_kind" in
+    main) conversation_status=" ${DIM}│${RESET} ${MAGENTA}◇ agents: ${active_agents}${RESET}" ;;
+    side) conversation_status=" ${DIM}│${RESET} ${MAGENTA}/btw${RESET}" ;;
+    agent) [[ -n "$agent_label" ]] && conversation_status=" ${DIM}│${RESET} ${MAGENTA}agent: ${agent_label}${RESET}" ;;
+esac
 echo "${CYAN}[${model}]${RESET} ${MUTED}⚙ ${effort}${RESET}${fast_status} ${DIM}│${RESET} ${GREEN}>_${RESET} ${WHITE}${project}${RESET}${git_summary:+ ${DIM}│${RESET} ${BLUE}⎇${RESET} ${git_summary}}"
 if ((context_size > 0)); then
     echo "${MUTED}◒ context:${RESET} ${context_color}${context_pct}% used${RESET} $(bar "$context_pct") ${MUTED}· $(format_tokens "$context_used") / $(format_tokens "$context_size")${RESET}${last_turn:+ ${DIM}│${RESET} ${MAGENTA}last:${RESET} ${last_turn}}"
 else
     echo "${MUTED}◒ context:${RESET} ${DIM}awaiting first turn${RESET}${last_turn:+ ${DIM}│${RESET} ${MAGENTA}last:${RESET} ${last_turn}}"
 fi
-echo "${LIMITS}◷ limits:${RESET} ${LIMITS}5h ${five_hour}%${RESET}${five_reset:+ ${DIM}${LIMITS}(${five_reset})${RESET}} ${DIM}│${RESET} ${LIMITS}7d ${seven_day}%${RESET}${seven_reset:+ ${DIM}${LIMITS}(${seven_reset})${RESET}} ${DIM}│${RESET} $(agent_state_color "$agent_state")● ${agent_state}${RESET}${approval_mode:+ ${DIM}│${RESET} $(approval_color "$approval_mode")◆ ${approval_mode}${RESET}}"
+echo "${LIMITS}◷ limits:${RESET} ${five_hour_status}${LIMITS}7d ${seven_day}%${RESET}${seven_reset:+ ${DIM}${LIMITS}(${seven_reset})${RESET}} ${DIM}│${RESET} $(agent_state_color "$agent_state")● ${agent_state}${RESET}${approval_mode:+ ${DIM}│${RESET} $(approval_color "$approval_mode")◆ ${approval_mode}${RESET}}${conversation_status}"
