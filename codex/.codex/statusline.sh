@@ -104,8 +104,8 @@ cwd=$(json '.workspace.current_dir // "."')
 project=$(basename "$cwd")
 agent_state=$(json '.agent_state // "idle"')
 approval_mode=$(json '.approval_mode // ""')
-agent_state=${agent_state,,}
-approval_mode=${approval_mode,,}
+agent_state=$(printf '%s' "$agent_state" | tr '[:upper:]' '[:lower:]')
+approval_mode=$(printf '%s' "$approval_mode" | tr '[:upper:]' '[:lower:]')
 
 context_pct=$(json '.context_window.used_percentage // 0')
 context_size=$(json '.context_window.context_window_size // 0')
