@@ -99,6 +99,7 @@ effort=$(json '.effort.level // "none"')
 fast_mode=$(json '.service_tier.fast_enabled // false')
 conversation_kind=$(json '.conversation.kind // "main"')
 active_agents=$(json '.conversation.active_agents // 0')
+stopped_agents=$(json '.conversation.stopped_agents // 0')
 agent_label=$(json '.conversation.agent_label // empty')
 cwd=$(json '.workspace.current_dir // "."')
 project=$(basename "$cwd")
@@ -181,7 +182,7 @@ if [[ "$fast_mode" == "true" ]]; then
 fi
 conversation_status=''
 case "$conversation_kind" in
-    main) conversation_status=" ${DIM}│${RESET} ${MAGENTA}◇ agents: ${active_agents}${RESET}" ;;
+    main) conversation_status=" ${DIM}│${RESET} ${MAGENTA}agents: ◆ ${active_agents}  ◇ ${stopped_agents}${RESET}" ;;
     side) conversation_status=" ${DIM}│${RESET} ${MAGENTA}/btw${RESET}" ;;
     agent) [[ -n "$agent_label" ]] && conversation_status=" ${DIM}│${RESET} ${MAGENTA}agent: ${agent_label}${RESET}" ;;
 esac
