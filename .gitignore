@@ -15,6 +15,17 @@ gemini/.gemini/oauth_creds.json
 codex/.codex/auth.json
 codex/.codex/*.sqlite*
 
+# Cursor local-only / machine state (never symlink or commit)
+cursor/.cursor/projects/
+cursor/.cursor/chats/
+cursor/.cursor/ai-tracking/
+cursor/.cursor/skills-cursor/
+cursor/.cursor/sandbox-policies/
+cursor/.cursor/agent-cli-state.json
+cursor/.cursor/statsig-cache.json
+cursor/.cursor/cli-config.json
+cursor/.cursor/statusline.last.json
+
 # Root level
 .DS_Store
 *.token

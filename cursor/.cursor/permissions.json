@@ -1,0 +1,16 @@
+{
+  "autoRun": {
+    "allow_instructions": [
+      "Read-only git commands are fine to auto-run: status, diff, log, show, branch -a, rev-parse, and similar inspections.",
+      "Read-only GitHub/GitLab CLI inspections are fine: gh pr view, gh pr list, gh issue view, gh issue list, glab mr view, glab issue view."
+    ],
+    "block_instructions": [
+      "Always require approval for any git commit (including commit -a, commit --amend, and commit via git -C).",
+      "Always require approval for any git push (any remote, branch, tags, or --force).",
+      "Always require approval for creating or updating pull requests / merge requests: gh pr create, gh pr edit, glab mr create, glab mr update.",
+      "Always require approval for creating or updating issues: gh issue create, gh issue edit, glab issue create, glab issue update.",
+      "Always require approval for commenting on pull requests, merge requests, or issues: gh pr comment, gh issue comment, glab mr comment, glab mr note, glab issue comment, glab issue note.",
+      "Always require approval for merging, closing, or reviewing PRs/MRs via CLI: gh pr merge, gh pr close, gh pr review, glab mr merge, glab mr close."
+    ]
+  }
+}

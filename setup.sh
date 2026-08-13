@@ -20,7 +20,7 @@ set -eo pipefail
 REPO_URL="${AGENT_DOTFILES_REPO:-https://github.com/MauriceDHanisch/agent-dotfiles.git}"
 TARGET_DIR="$HOME/.agent-dotfiles"
 BACKUP_DIR="$HOME/.agent-dotfiles-backup/$(date +%Y%m%d-%H%M%S)"
-ALL_COMPONENTS="claude gemini antigravity codex skills"
+ALL_COMPONENTS="claude gemini antigravity codex cursor skills"
 
 MODE="install"
 args=()
@@ -49,6 +49,7 @@ desc_of() {
         gemini)      echo "Gemini CLI      ~/.gemini" ;;
         antigravity) echo "Antigravity     ~/.gemini/antigravity-cli" ;;
         codex)       echo "Codex           ~/.codex" ;;
+        cursor)      echo "Cursor          ~/.cursor" ;;
         skills)      echo "Shared skills   ~/.agents/skills" ;;
     esac
 }
@@ -368,16 +369,79 @@ uninstall_component() {
     printf '  %s✓%s %s%-12s%s %s\n' "$G" "$X" "$B" "$pkg" "$X" "$detail"
 }
 
+# Rebuild Cursor's always-apply rule from guidelines.md so Cursor keeps the
+# same source of truth as CLAUDE.md / AGENTS.md / GEMINI.md (which are
+# symlinks). Cursor rules need YAML frontmatter, so a plain symlink is not
+# enough.
+sync_cursor_guidelines() {
+    local out="$TARGET_DIR/cursor/.cursor/rules/guidelines.mdc"
+    mkdir -p "$(dirname "$out")"
+    {
+        printf '%s\n' '---' \
+            'description: Global agent guidelines (synced from guidelines.md)' \
+            'alwaysApply: true' \
+            '---' \
+            ''
+        cat "$TARGET_DIR/guidelines.md"
+    } > "$out"
+}
+
+# cli-config.json is local/machine state (auth caches, model picker). Deep-merge
+# portable prefs from cli-preferences.json so installs do not clobber the rest.
+# Prefs win on conflict; keys only in cli-config.json (authInfo, caches, …) are kept.
+ensure_cursor_cli_config() {
+    local cfg="$HOME/.cursor/cli-config.json"
+    local prefs="$TARGET_DIR/cursor/.cursor/cli-preferences.json"
+    if [ ! -f "$prefs" ]; then
+        warn "missing ${D}$prefs${X}; skip cli-config merge"
+        return
+    fi
+    if [ ! -f "$cfg" ]; then
+        warn "no $cfg yet; create one (or start Cursor CLI once), then re-run: bash setup.sh cursor"
+        return
+    fi
+    if ! command -v jq >/dev/null 2>&1; then
+        warn "jq not found; skip merging Cursor cli-preferences.json"
+        return
+    fi
+    local tmp
+    tmp="$(mktemp)"
+    if jq -s '
+        def deepmerge($a; $b):
+          if ($a | type) == "object" and ($b | type) == "object" then
+            reduce (($a + $b) | keys_unsorted[]) as $k
+              ({}; .[$k] = deepmerge($a[$k]; $b[$k]))
+          elif $b == null then
+            $a
+          else
+            $b
+          end;
+        deepmerge(.[0]; .[1])
+      ' "$cfg" "$prefs" >"$tmp"; then
+        mv "$tmp" "$cfg"
+        ok "merged ${D}cli-preferences.json${X} → ${D}~/.cursor/cli-config.json${X}"
+    else
+        rm -f "$tmp"
+        warn "failed to merge Cursor cli-preferences.json"
+    fi
+}
+
 # ---- 3. install / uninstall -----------------------------------------------
 step "Components"
 TOT_REMOVED=0; TOT_RESTORED=0
 for COMPONENT in $COMPONENTS; do
     case $COMPONENT in
-        claude|gemini|antigravity|codex|skills)
+        claude|gemini|antigravity|codex|cursor|skills)
             if [ "$MODE" = "uninstall" ]; then
                 uninstall_component "$COMPONENT"
             else
+                if [ "$COMPONENT" = "cursor" ]; then
+                    sync_cursor_guidelines
+                fi
                 install_component "$COMPONENT"
+                if [ "$COMPONENT" = "cursor" ]; then
+                    ensure_cursor_cli_config
+                fi
             fi ;;
         *) warn "${B}${COMPONENT}${X} unknown, skipping" ;;
     esac
