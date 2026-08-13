@@ -3,14 +3,15 @@
 #
 #   curl -fsSL https://raw.githubusercontent.com/MauriceDHanisch/agent-dotfiles/main/setup.sh | bash
 #
-# Clones/updates ~/.agent-dotfiles and symlinks each agent's config into $HOME.
+# Clones/updates ~/.agent-dotfiles and copies each agent's config into $HOME.
 # With no arguments on an interactive terminal it shows a key-driven picker for
 # which components to install (default: all selected). Pass names to skip it:
 #
 #   curl -fsSL .../setup.sh | bash -s -- claude skills
 #
-# Pass --uninstall to remove the symlinks instead (restoring the most recent
-# pre-install backup for each path, if one exists). The repo checkout at
+# Pass --uninstall to remove managed files that still match the repository
+# version, restoring the most recent pre-install backup for each path when one
+# exists. The repo checkout at
 # ~/.agent-dotfiles and any local-only files are left untouched:
 #
 #   curl -fsSL .../setup.sh | bash -s -- --uninstall
@@ -314,13 +315,12 @@ clear_broken_ancestors() {
     done
 }
 
-TOT_LINKED=0; TOT_BACKED=0; TOT_ORPHAN=0; TOT_OK=0
+TOT_COPIED=0; TOT_BACKED=0; TOT_OK=0
 
 # install_component <package-name>
 #
-# The repo is the source of truth: for every tracked file we ensure
-# $HOME/<rel> is a symlink to the repo file. Orphan symlinks pointing into the
-# repo whose target vanished are removed. Local-only files are never touched.
+# The repository is the source of truth. Changed managed files are backed up,
+# then replaced with regular copies. Local-only files are never touched.
 install_component() {
     local pkg="$1"
     local pkg_dir="$TARGET_DIR/$pkg"
@@ -330,35 +330,19 @@ install_component() {
         return
     fi
 
-    local linked=0 backed_up=0 skipped=0
+    local copied=0 backed_up=0 skipped=0
     while IFS= read -r src; do
         local rel="${src#$pkg_dir/}"
         local dst="$HOME/$rel"
 
-        # Already the correct symlink? Leave it.
-        if [ -L "$dst" ] && [ -e "$dst" ]; then
-            local current
-            current="$(readlink "$dst")"
-            if [ "$current" = "$src" ]; then
-                skipped=$((skipped + 1)); continue
-            fi
-            local resolved
-            resolved="$(readlink -f "$dst" 2>/dev/null || true)"
-            if [ "$resolved" = "$src" ]; then
-                skipped=$((skipped + 1)); continue
-            fi
+        # A matching regular file is already in sync. Symlinks are intentionally
+        # replaced so live configuration never edits the repository indirectly.
+        if [ -f "$dst" ] && [ ! -L "$dst" ] && cmp -s "$src" "$dst"; then
+            skipped=$((skipped + 1))
+            continue
         fi
 
-        # A real file living inside the repo via an already-symlinked ancestor?
-        if [ -e "$dst" ] && [ ! -L "$dst" ]; then
-            local real
-            real="$(cd "$(dirname "$dst")" 2>/dev/null && pwd -P)/$(basename "$dst")"
-            case "$real" in
-                "$TARGET_DIR"/*) skipped=$((skipped + 1)); continue ;;
-            esac
-        fi
-
-        # Anything still here (real file, wrong/broken symlink) needs to move.
+        # Preserve any previous managed or local version before replacing it.
         if [ -e "$dst" ] || [ -L "$dst" ]; then
             local backup_path="$BACKUP_DIR/$rel"
             clear_broken_ancestors "$backup_path"
@@ -370,44 +354,18 @@ install_component() {
 
         clear_broken_ancestors "$dst"
         mkdir -p "$(dirname "$dst")"
-        ln -s "$src" "$dst"
-        linked=$((linked + 1))
+        cp -p "$src" "$dst"
+        copied=$((copied + 1))
     done < <(find "$pkg_dir" \( -type f -o -type l \) ! -path '*/.git/*')
 
-    # Orphan cleanup.
-    local top_dir target_root orphans=0
-    top_dir="$(basename "$(find "$pkg_dir" -mindepth 1 -maxdepth 1 -type d | head -1)")"
-    target_root="$HOME/$top_dir"
-    if [ -d "$target_root" ]; then
-        while IFS= read -r link; do
-            local lnk_target
-            lnk_target="$(readlink "$link")"
-            case "$lnk_target" in
-                /*) ;;
-                *) lnk_target="$(cd "$(dirname "$link")" 2>/dev/null && pwd -P)/$lnk_target" ;;
-            esac
-            case "$lnk_target" in
-                "$TARGET_DIR"/*) ;;
-                *) continue ;;
-            esac
-            if [ ! -e "$lnk_target" ]; then
-                rm "$link"
-                printf '      %s· orphan removed %s%s\n' "$D" "$link" "$X"
-                orphans=$((orphans + 1))
-            fi
-        done < <(find "$target_root" -type l 2>/dev/null)
-    fi
-
-    TOT_LINKED=$((TOT_LINKED + linked))
+    TOT_COPIED=$((TOT_COPIED + copied))
     TOT_BACKED=$((TOT_BACKED + backed_up))
-    TOT_ORPHAN=$((TOT_ORPHAN + orphans))
     TOT_OK=$((TOT_OK + skipped))
 
     # Mention only what actually happened.
     local detail parts=()
-    [ "$linked" -gt 0 ]    && parts+=("${G}${linked} linked${X}")
+    [ "$copied" -gt 0 ]    && parts+=("${G}${copied} copied${X}")
     [ "$backed_up" -gt 0 ] && parts+=("${C}${backed_up} backed up${X}")
-    [ "$orphans" -gt 0 ]   && parts+=("${C}${orphans} removed${X}")
     [ "$skipped" -gt 0 ]   && parts+=("${D}${skipped} ok${X}")
     if [ ${#parts[@]} -eq 0 ]; then
         detail="${D}nothing to do${X}"
@@ -419,10 +377,9 @@ install_component() {
 
 # uninstall_component <package-name>
 #
-# For every repo-tracked file, remove $HOME/<rel> only if it is (still) a
-# symlink resolving into the repo. Anything else (a local file the user put
-# there since) is left alone. If a pre-install backup exists for that path,
-# the most recent one is restored in its place.
+# For every repo-tracked file, remove $HOME/<rel> only if it still matches the
+# repository copy. Anything changed locally is left alone. If a pre-sync
+# backup exists for that path, the most recent one is restored in its place.
 uninstall_component() {
     local pkg="$1"
     local pkg_dir="$TARGET_DIR/$pkg"
@@ -437,15 +394,9 @@ uninstall_component() {
         local rel="${src#$pkg_dir/}"
         local dst="$HOME/$rel"
 
-        if [ ! -L "$dst" ]; then
+        if [ ! -f "$dst" ] || [ -L "$dst" ] || ! cmp -s "$src" "$dst"; then
             skipped=$((skipped + 1)); continue
         fi
-        local resolved
-        resolved="$(readlink -f "$dst" 2>/dev/null || true)"
-        case "$resolved" in
-            "$TARGET_DIR"/*) ;;
-            *) skipped=$((skipped + 1)); continue ;;
-        esac
 
         rm "$dst"
         removed=$((removed + 1))
@@ -480,9 +431,8 @@ uninstall_component() {
 }
 
 # Rebuild Cursor's always-apply rule from guidelines.md so Cursor keeps the
-# same source of truth as CLAUDE.md / AGENTS.md / GEMINI.md (which are
-# symlinks). Cursor rules need YAML frontmatter, so a plain symlink is not
-# enough.
+# same source of truth as CLAUDE.md / AGENTS.md / GEMINI.md. Cursor rules need
+# YAML frontmatter, so this generated copy is necessary.
 sync_cursor_guidelines() {
     local out="$TARGET_DIR/cursor/.cursor/rules/guidelines.mdc"
     mkdir -p "$(dirname "$out")"
@@ -566,15 +516,15 @@ done
 # ---- 4. summary ----------------------------------------------------------
 if [ "$MODE" = "uninstall" ]; then
     printf '\n%s%s✓%s %sagent-dotfiles uninstalled%s\n' "$B" "$G" "$X" "$B" "$X"
-    printf '  %s%s symlink(s) removed · %s restored from backup · %s left alone (not ours)%s\n' \
+    printf '  %s managed file(s) removed · %s restored from backup · %s left alone (changed locally)%s\n' \
         "$D" "$TOT_REMOVED" "$TOT_RESTORED" "$TOT_OK" "$X"
     printf '  %srepo checkout kept at %s (delete manually if not wanted)%s\n' "$D" "$TARGET_DIR" "$X"
     printf '  %slocal-only files (history, credentials, sessions) preserved%s\n' "$D" "$X"
     printf '  %sreinstall:%s curl -fsSL .../setup.sh | bash\n\n' "$D" "$X"
 else
     printf '\n%s%s✓%s %sagent-dotfiles %s%s\n' "$B" "$G" "$X" "$B" "$final_word" "$X"
-    printf '  %s%s repo file(s) updated · %s linked · %s backed up · %s orphan(s) removed · %s unchanged%s\n' \
-        "$D" "$repo_files_changed" "$TOT_LINKED" "$TOT_BACKED" "$TOT_ORPHAN" "$TOT_OK" "$X"
+    printf '  %s%s repo file(s) updated · %s copied · %s backed up · %s unchanged%s\n' \
+        "$D" "$repo_files_changed" "$TOT_COPIED" "$TOT_BACKED" "$TOT_OK" "$X"
     if [ -d "$BACKUP_DIR" ]; then
         printf '  %sconflicting files moved to %s%s\n' "$D" "$BACKUP_DIR" "$X"
     fi

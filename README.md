@@ -19,7 +19,7 @@ Valid components: `claude`, `gemini`, `antigravity`, `codex`, `codex-bin`, `curs
 
 ## Uninstall
 
-Removes the symlinks this installer created, restoring the most recent pre-install backup for each path if one exists. The repo checkout at `~/.agent-dotfiles` and any local-only files are left untouched:
+Removes managed files that still match the repository version, restoring the most recent pre-sync backup for each path if one exists. Locally changed files, the repository checkout at `~/.agent-dotfiles`, and local-only files are left untouched:
 ```bash
 curl -fsSL https://raw.githubusercontent.com/MauriceDHanisch/agent-dotfiles/main/setup.sh | bash -s -- --uninstall
 ```
@@ -32,11 +32,11 @@ curl -fsSL https://raw.githubusercontent.com/MauriceDHanisch/agent-dotfiles/main
 
 ## Structure
 
-This repository uses a "dotfiles" approach where multiple tool configurations are stored in one place and symlinked to your home directory.
+This repository uses a "dotfiles" approach where multiple tool configurations are stored in one place and explicitly copied into your home directory when you run the installer.
 
-Local-only files (history, credentials, sessions, sqlite dbs) are left untouched. When a local file conflicts with a tracked file, it is moved to `~/.agent-dotfiles-backup/<timestamp>/` before the symlink is created.
+Local-only files (history, credentials, sessions, sqlite dbs) are left untouched. When a managed file differs from its tracked version, it is moved to `~/.agent-dotfiles-backup/<timestamp>/` before the repository version replaces it.
 
-- `guidelines.md`: The **Source of Truth** for global agent instructions. Claude / Gemini / Codex / Antigravity point at this file via symlinks (`CLAUDE.md`, `GEMINI.md`, `AGENTS.md`). Cursor gets the same text as an always-apply rule at `~/.cursor/rules/guidelines.mdc` (regenerated from `guidelines.md` on install, because Cursor rules need YAML frontmatter).
+- `guidelines.md`: The **Source of Truth** for global agent instructions. Claude / Gemini / Codex / Antigravity receive copies as `CLAUDE.md`, `GEMINI.md`, and `AGENTS.md` on sync. Cursor gets the same text as an always-apply rule at `~/.cursor/rules/guidelines.mdc` (regenerated from `guidelines.md` on install, because Cursor rules need YAML frontmatter).
 - `claude/`: Claude Code configurations (`~/.claude`).
 - `gemini/`: Gemini CLI configurations (`~/.gemini`).
 - `codex/`: Codex configurations (`~/.codex`).
@@ -46,9 +46,9 @@ Local-only files (history, credentials, sessions, sqlite dbs) are left untouched
 
 ## How to Manage
 
-1. **Edit Guidelines**: Modify `guidelines.md` at the root. Re-run the installer (or `bash setup.sh cursor`) so Cursor's `guidelines.mdc` is regenerated. Other agents pick up changes immediately via symlink.
+1. **Edit Guidelines**: Modify `guidelines.md` at the root, commit and push it, then re-run the installer. This copies the update into every agent's live configuration, including Cursor's regenerated `guidelines.mdc`.
 2. **Edit Cursor CLI prefs**: Change `cursor/.cursor/cli-preferences.json`, then re-run `bash setup.sh cursor` to deep-merge into `~/.cursor/cli-config.json`.
-3. **Edit Auto-review ask/block policy**: Change `cursor/.cursor/permissions.json` (`autoRun`). It is symlinked to `~/.cursor/permissions.json` on install.
+3. **Edit Auto-review ask/block policy**: Change `cursor/.cursor/permissions.json` (`autoRun`), then re-run the installer to copy it to `~/.cursor/permissions.json`.
 4. **Add Skills**: Add new skill folders under `skills/.agents/skills/`.
 5. **Sync**:
    ```bash
@@ -61,7 +61,7 @@ Local-only files (history, credentials, sessions, sqlite dbs) are left untouched
 ## Requirements
 - `git`
 - `curl`, `tar`, and either `sha256sum` or `shasum` (for custom Codex binary installation)
-- `bash`, `find`, `ln`, `readlink` (standard on macOS and Linux)
+- `bash`, `cmp`, `find`, `readlink` (standard on macOS and Linux)
 - `jq` (for Cursor statusline + deep-merging `cli-preferences.json`)
 - `bc` (for Cursor statusline token formatting)
 
