@@ -11,6 +11,7 @@ max_concurrent_threads_per_session = 3
 
 [tui]
 alternate_screen = "always"
+user_message_background = "always"
 notification_condition = "unfocused"
 notifications = true
 status_line_command = "bash ~/.agent-dotfiles/codex/.codex/statusline.sh"
@@ -104,3 +105,12 @@ policy = '''
 - A normal request to create or comment does not authorize automatic approval.
 - Permit the exact action only when the reviewer receives the explicit user override marker created by /approve for that denied action.
 '''
+
+[projects."/home/maurice/projects/others/codex"]
+trust_level = "trusted"
+
+[projects."/home/maurice"]
+trust_level = "trusted"
+
+[projects."/home/maurice/projects/others/codex/codex-rs"]
+trust_level = "trusted"
