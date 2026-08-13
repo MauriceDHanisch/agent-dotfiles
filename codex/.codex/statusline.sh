@@ -131,6 +131,7 @@ GREEN=$'\e[38;2;110;210;155m'
 YELLOW=$'\e[38;2;235;190;95m'
 RED=$'\e[38;2;235;110;115m'
 MAGENTA=$'\e[38;2;225;180;245m'
+LIMITS=$'\e[38;2;200;140;155m'
 
 branch=''
 git_summary=''
@@ -172,4 +173,4 @@ if ((context_size > 0)); then
 else
     echo "${MUTED}◒ context:${RESET} ${DIM}awaiting first turn${RESET}${last_turn:+ ${DIM}│${RESET} ${MAGENTA}last:${RESET} ${last_turn}}"
 fi
-echo "${YELLOW}◷ limits:${RESET} ${YELLOW}5h ${five_hour}%${RESET}${five_reset:+ ${DIM}${YELLOW}(${five_reset})${RESET}} ${DIM}│${RESET} ${YELLOW}7d ${seven_day}%${RESET}${seven_reset:+ ${DIM}${YELLOW}(${seven_reset})${RESET}} ${DIM}│${RESET} $(agent_state_color "$agent_state")● ${agent_state}${RESET}${approval_mode:+ ${DIM}│${RESET} $(approval_color "$approval_mode")◆ ${approval_mode}${RESET}}"
+echo "${LIMITS}◷ limits:${RESET} ${LIMITS}5h ${five_hour}%${RESET}${five_reset:+ ${DIM}${LIMITS}(${five_reset})${RESET}} ${DIM}│${RESET} ${LIMITS}7d ${seven_day}%${RESET}${seven_reset:+ ${DIM}${LIMITS}(${seven_reset})${RESET}} ${DIM}│${RESET} $(agent_state_color "$agent_state")● ${agent_state}${RESET}${approval_mode:+ ${DIM}│${RESET} $(approval_color "$approval_mode")◆ ${approval_mode}${RESET}}"
