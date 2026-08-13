@@ -20,7 +20,7 @@ set -eo pipefail
 REPO_URL="${AGENT_DOTFILES_REPO:-https://github.com/MauriceDHanisch/agent-dotfiles.git}"
 TARGET_DIR="$HOME/.agent-dotfiles"
 BACKUP_DIR="$HOME/.agent-dotfiles-backup/$(date +%Y%m%d-%H%M%S)"
-ALL_COMPONENTS="claude gemini antigravity codex cursor skills"
+ALL_COMPONENTS="claude gemini antigravity codex codex-bin cursor skills"
 
 MODE="install"
 args=()
@@ -49,6 +49,7 @@ desc_of() {
         gemini)      echo "Gemini CLI      ~/.gemini" ;;
         antigravity) echo "Antigravity     ~/.gemini/antigravity-cli" ;;
         codex)       echo "Codex           ~/.codex" ;;
+        codex-bin)   echo "Custom Codex    ~/.local/bin/codex" ;;
         cursor)      echo "Cursor          ~/.cursor" ;;
         skills)      echo "Shared skills   ~/.agents/skills" ;;
     esac
@@ -120,6 +121,115 @@ fi
 printf '%s───────────────────────%s\n' "$D" "$X"
 
 command -v git >/dev/null 2>&1 || die "git is required but not found"
+
+CODEX_RELEASE_REPO="${CODEX_RELEASE_REPO:-MauriceDHanisch/codex}"
+CODEX_RELEASE_TAG="${CODEX_RELEASE_TAG:-latest}"
+
+codex_target() {
+    case "$(uname -s)/$(uname -m)" in
+        Darwin/arm64) printf '%s' 'aarch64-apple-darwin' ;;
+        Linux/x86_64) printf '%s' 'x86_64-unknown-linux-musl' ;;
+        Linux/aarch64|Linux/arm64) printf '%s' 'aarch64-unknown-linux-musl' ;;
+        *) return 1 ;;
+    esac
+}
+
+sha256_file() {
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$1" | awk '{print $1}'
+    elif command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 "$1" | awk '{print $1}'
+    else
+        return 1
+    fi
+}
+
+link_codex_binary() {
+    local source="$1" binary destination backup_path
+    binary="$(basename "$source")"
+    destination="$HOME/.local/bin/$binary"
+    if [ -e "$destination" ] && [ ! -L "$destination" ]; then
+        backup_path="$BACKUP_DIR/.local/bin/$binary"
+        mkdir -p "$(dirname "$backup_path")"
+        mv "$destination" "$backup_path"
+        warn "backed up existing ${D}$destination${X}"
+    fi
+    mkdir -p "$(dirname "$destination")"
+    ln -sfn "$source" "$destination"
+}
+
+install_codex_binary() {
+    local target tag release_json asset archive_url checksum_url tmp_dir expected actual install_dir binary
+    target="$(codex_target)" || {
+        warn "Codex binary unavailable for $(uname -s)/$(uname -m)"
+        return
+    }
+    if ! command -v curl >/dev/null 2>&1; then
+        warn "curl not found; skipped custom Codex binary install"
+        return
+    fi
+    if [ "$CODEX_RELEASE_TAG" = "latest" ]; then
+        release_json="$(curl -fsSL "https://api.github.com/repos/${CODEX_RELEASE_REPO}/releases/latest")" || {
+            warn "no custom Codex release published yet; skipped binary install"
+            return
+        }
+        tag="$(printf '%s\n' "$release_json" | sed -nE 's/^[[:space:]]*"tag_name":[[:space:]]*"([^"]+)".*/\1/p' | head -n 1)"
+        if [ -z "$tag" ]; then
+            warn "could not read the latest custom Codex release tag; skipped binary install"
+            return
+        fi
+    else
+        tag="$CODEX_RELEASE_TAG"
+    fi
+    case "$tag" in
+        ''|*[!A-Za-z0-9._-]*)
+            warn "invalid custom Codex release tag: ${tag}"
+            return
+            ;;
+    esac
+    asset="codex-${target}.tar.gz"
+    install_dir="$HOME/.local/opt/codex/$tag"
+    if [ ! -x "$install_dir/bin/codex" ]; then
+        tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/codex-install.XXXXXX")"
+        archive_url="https://github.com/${CODEX_RELEASE_REPO}/releases/download/${tag}/${asset}"
+        checksum_url="https://github.com/${CODEX_RELEASE_REPO}/releases/download/${tag}/SHA256SUMS"
+        if ! curl -fsSL "$archive_url" -o "$tmp_dir/$asset" \
+            || ! curl -fsSL "$checksum_url" -o "$tmp_dir/SHA256SUMS"; then
+            rm -rf "$tmp_dir"
+            warn "failed to download custom Codex ${tag}"
+            return
+        fi
+        expected="$(awk -v asset="$asset" '$2 == asset { print $1 }' "$tmp_dir/SHA256SUMS")"
+        actual="$(sha256_file "$tmp_dir/$asset")" || {
+            rm -rf "$tmp_dir"
+            warn "sha256sum or shasum is required for custom Codex"
+            return
+        }
+        if [ -z "$expected" ] || [ "$expected" != "$actual" ]; then
+            rm -rf "$tmp_dir"
+            warn "checksum verification failed for custom Codex ${tag}"
+            return
+        fi
+        tar -xzf "$tmp_dir/$asset" -C "$tmp_dir"
+        if [ ! -x "$tmp_dir/codex-${target}/bin/codex" ]; then
+            rm -rf "$tmp_dir"
+            warn "custom Codex archive has an unexpected layout"
+            return
+        fi
+        mkdir -p "$(dirname "$install_dir")"
+        if [ -e "$install_dir" ] || [ -L "$install_dir" ]; then
+            rm -rf "$install_dir"
+        fi
+        mv "$tmp_dir/codex-${target}" "$install_dir"
+        rm -rf "$tmp_dir"
+    fi
+    for binary in codex codex-code-mode-host codex-responses-api-proxy; do
+        if [ -x "$install_dir/bin/$binary" ]; then
+            link_codex_binary "$install_dir/bin/$binary"
+        fi
+    done
+    ok "custom Codex ${D}${tag}${X} installed for ${D}${target}${X}"
+}
 
 if [ "$MODE" = "uninstall" ] && [ ! -d "$TARGET_DIR" ]; then
     die "nothing to uninstall, $TARGET_DIR not found"
@@ -442,6 +552,12 @@ for COMPONENT in $COMPONENTS; do
                 if [ "$COMPONENT" = "cursor" ]; then
                     ensure_cursor_cli_config
                 fi
+            fi ;;
+        codex-bin)
+            if [ "$MODE" = "uninstall" ]; then
+                warn "custom Codex binaries are retained in ~/.local/opt/codex"
+            else
+                install_codex_binary
             fi ;;
         *) warn "${B}${COMPONENT}${X} unknown, skipping" ;;
     esac
