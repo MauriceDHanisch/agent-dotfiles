@@ -186,6 +186,7 @@ case "$conversation_kind" in
     side) conversation_status=" ${DIM}│${RESET} ${MAGENTA}/btw${RESET}" ;;
     agent) [[ -n "$agent_label" ]] && conversation_status=" ${DIM}│${RESET} ${MAGENTA}agent: ${agent_label}${RESET}" ;;
 esac
+echo
 echo "${CYAN}[${model}]${RESET} ${MUTED}⚙ ${effort}${RESET}${fast_status} ${DIM}│${RESET} ${GREEN}>_${RESET} ${WHITE}${project}${RESET}${git_summary:+ ${DIM}│${RESET} ${BLUE}⎇${RESET} ${git_summary}}"
 if ((context_size > 0)); then
     echo "${MUTED}◒ context:${RESET} ${context_color}${context_pct}% used${RESET} $(bar "$context_pct") ${MUTED}· $(format_tokens "$context_used") / $(format_tokens "$context_size")${RESET}${last_turn:+ ${DIM}│${RESET} ${MAGENTA}last:${RESET} ${last_turn}}"
@@ -193,3 +194,4 @@ else
     echo "${MUTED}◒ context:${RESET} ${DIM}awaiting first turn${RESET}${last_turn:+ ${DIM}│${RESET} ${MAGENTA}last:${RESET} ${last_turn}}"
 fi
 echo "${LIMITS}◷ limits:${RESET} ${five_hour_status}${LIMITS}7d ${seven_day}%${RESET}${seven_reset:+ ${DIM}${LIMITS}(${seven_reset})${RESET}} ${DIM}│${RESET} $(agent_state_color "$agent_state")● ${agent_state}${RESET}${approval_mode:+ ${DIM}│${RESET} $(approval_color "$approval_mode")◆ ${approval_mode}${RESET}}${conversation_status}"
+printf ' \n'
