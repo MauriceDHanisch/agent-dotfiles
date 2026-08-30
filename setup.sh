@@ -161,10 +161,11 @@ link_codex_binary() {
 
 link_codex_managed_install() {
     local codex_home="$1" install_dir="$2"
-    local managed_root managed_current managed_marker marker_tmp
+    local managed_root managed_current managed_marker marker_tmp managed_bin
     managed_root="$codex_home/packages/standalone"
     managed_current="$managed_root/current"
     managed_marker="$managed_root/.agent-dotfiles-custom"
+    managed_bin="$install_dir/bin"
 
     if { [ -e "$managed_current" ] || [ -L "$managed_current" ]; } \
         && [ ! -f "$managed_marker" ]; then
@@ -178,14 +179,14 @@ link_codex_managed_install() {
     fi
 
     mkdir -p "$managed_root"
-    ln -sfn "$install_dir" "$managed_current"
-    if [ ! -x "$managed_current/bin/codex" ]; then
+    ln -sfn "$managed_bin" "$managed_current"
+    if [ ! -x "$managed_current/codex" ]; then
         warn "managed Codex link was not created at ${D}$managed_current${X}"
         return 0
     fi
 
     marker_tmp="$managed_marker.$$"
-    printf '%s\n' "$install_dir" >"$marker_tmp"
+    printf '%s\n' "$managed_bin" >"$marker_tmp"
     mv -f "$marker_tmp" "$managed_marker"
     ok "managed Codex path linked for ${D}codex agents${X}"
 }
