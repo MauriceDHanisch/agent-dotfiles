@@ -40,7 +40,7 @@ Local-only files (history, credentials, sessions, sqlite dbs) are left untouched
 - `claude/`: Claude Code configurations (`~/.claude`).
 - `gemini/`: Gemini CLI configurations (`~/.gemini`).
 - `codex/`: Codex configurations (`~/.codex`).
-- `codex-bin`: Custom Codex binary. It downloads the matching checksum-verified release asset from `MauriceDHanisch/codex` into `~/.local/opt/codex/<version>/` and links `codex` plus its helper binaries into `~/.local/bin/`. The installer selects Apple Silicon macOS or x86_64 Linux automatically. Deselect it to retain an existing official Codex installation. Set `CODEX_RELEASE_TAG` to install a specific release instead of the latest one.
+- `codex-bin`: Custom Codex binary. It downloads the matching checksum-verified release asset from `MauriceDHanisch/codex` into `~/.local/opt/codex/<version>/`, links `codex` plus its helper binaries into `~/.local/bin/`, and links the selected version into `$CODEX_HOME/packages/standalone/current/` so `codex agents` can start the custom app-server. The installer selects Apple Silicon macOS or x86_64 Linux automatically. Existing official managed installs are preserved. Deselect it to retain an existing official Codex installation. Set `CODEX_RELEASE_TAG` to install a specific release instead of the latest one.
 - `cursor/`: Cursor configurations (`~/.cursor`): always-apply guidelines rule, `statusline.sh`, `cli-preferences.json`, and `permissions.json`. The live `~/.cursor/cli-config.json` stays local (auth/cache). On install, portable keys from `cli-preferences.json` are deep-merged into it (prefs win on conflict; machine-only keys are kept). `permissions.json` steers Auto-review via `autoRun.block_instructions` / `allow_instructions` (Cursor CLI has no Claude-style `ask` list; `deny` hard-blocks instead of prompting).
 - `skills/`: Shared agent skills (`~/.agents/skills`). Cursor also discovers skills from `~/.claude/skills/` and `~/.codex/skills/`, so no Cursor-local skill copies are needed.
 
@@ -74,8 +74,14 @@ ARM64 Linux bundles, then publishes the bundles and `SHA256SUMS` as a GitHub
 Release.
 
 The normal installer selects the matching asset automatically when `codex-bin`
-is selected. To install configuration without replacing an existing Codex
-binary, select only `codex`. To pin a host to a specific version:
+is selected. It also links that release into
+`$CODEX_HOME/packages/standalone/current/` (defaulting to `~/.codex`) for
+shared app-server commands such as `codex agents`. To install configuration
+without replacing an existing Codex binary, select only `codex`. To pin a host
+to a specific version, set `CODEX_RELEASE_TAG` as shown below. The custom
+managed link is intended for `codex agents`
+and daemon `start`; do not use daemon `bootstrap` with it until the custom fork
+disables the official updater:
 
 ```bash
 CODEX_RELEASE_TAG=v0.147.0-maurice.1 bash setup.sh codex-bin

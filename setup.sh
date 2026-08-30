@@ -159,8 +159,39 @@ link_codex_binary() {
     ln -sfn "$source" "$destination"
 }
 
+link_codex_managed_install() {
+    local codex_home="$1" install_dir="$2"
+    local managed_root managed_current managed_marker marker_tmp
+    managed_root="$codex_home/packages/standalone"
+    managed_current="$managed_root/current"
+    managed_marker="$managed_root/.agent-dotfiles-custom"
+
+    if { [ -e "$managed_current" ] || [ -L "$managed_current" ]; } \
+        && [ ! -f "$managed_marker" ]; then
+        warn "existing managed Codex install preserved at ${D}$managed_current${X}"
+        warn "remove it before rerunning if you want the custom managed path"
+        return 0
+    fi
+    if [ -e "$managed_current" ] && [ ! -L "$managed_current" ]; then
+        warn "managed Codex path is not a symlink; preserved at ${D}$managed_current${X}"
+        return 0
+    fi
+
+    mkdir -p "$managed_root"
+    ln -sfn "$install_dir" "$managed_current"
+    if [ ! -x "$managed_current/bin/codex" ]; then
+        warn "managed Codex link was not created at ${D}$managed_current${X}"
+        return 0
+    fi
+
+    marker_tmp="$managed_marker.$$"
+    printf '%s\n' "$install_dir" >"$marker_tmp"
+    mv -f "$marker_tmp" "$managed_marker"
+    ok "managed Codex path linked for ${D}codex agents${X}"
+}
+
 install_codex_binary() {
-    local target tag release_json asset archive_url checksum_url tmp_dir expected actual install_dir binary
+    local target tag release_json asset archive_url checksum_url tmp_dir expected actual install_dir binary codex_home
     target="$(codex_target)" || {
         warn "Codex binary unavailable for $(uname -s)/$(uname -m)"
         return
@@ -229,6 +260,8 @@ install_codex_binary() {
             link_codex_binary "$install_dir/bin/$binary"
         fi
     done
+    codex_home="${CODEX_HOME:-$HOME/.codex}"
+    link_codex_managed_install "$codex_home" "$install_dir"
     ok "custom Codex ${D}${tag}${X} installed for ${D}${target}${X}"
 }
 
