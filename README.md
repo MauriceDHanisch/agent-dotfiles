@@ -1,6 +1,6 @@
 # Agent Dotfiles
 
-A unified, industry-standard configuration for Claude, Gemini, Codex, and Cursor agents. Bash installer with standard command-line tools.
+A unified, industry-standard configuration for Claude, Gemini, Codex, Cursor, and Muse agents. Bash installer with standard command-line tools.
 
 ## Install / Update
 
@@ -15,7 +15,7 @@ curl -fsSL https://raw.githubusercontent.com/MauriceDHanisch/agent-dotfiles/main
 curl -fsSL https://raw.githubusercontent.com/MauriceDHanisch/agent-dotfiles/main/setup.sh | bash -s -- claude skills
 ```
 
-Valid components: `claude`, `gemini`, `antigravity`, `codex`, `codex-bin`, `cursor`, `skills`.
+Valid components: `claude`, `gemini`, `antigravity`, `codex`, `codex-bin`, `cursor`, `muse`, `skills`.
 
 ## Uninstall
 
@@ -36,12 +36,13 @@ This repository uses a "dotfiles" approach where multiple tool configurations ar
 
 Local-only files (history, credentials, sessions, sqlite dbs) are left untouched. When a managed file differs from its tracked version, it is moved to `~/.agent-dotfiles-backup/<timestamp>/` before the repository version replaces it.
 
-- `guidelines.md`: The **Source of Truth** for global agent instructions. Claude / Gemini / Codex / Antigravity receive copies as `CLAUDE.md`, `GEMINI.md`, and `AGENTS.md` on sync. Cursor gets the same text as an always-apply rule at `~/.cursor/rules/guidelines.mdc` (regenerated from `guidelines.md` on install, because Cursor rules need YAML frontmatter).
+- `guidelines.md`: The **Source of Truth** for global agent instructions. Claude / Gemini / Codex / Antigravity receive copies as `CLAUDE.md`, `GEMINI.md`, and `AGENTS.md` on sync. Muse receives a copy as `~/.config/muse/AGENTS.md` (verified: Muse loads this as machine-wide user rules). Cursor gets the same text as an always-apply rule at `~/.cursor/rules/guidelines.mdc` (regenerated from `guidelines.md` on install, because Cursor rules need YAML frontmatter).
 - `claude/`: Claude Code configurations (`~/.claude`).
 - `gemini/`: Gemini CLI configurations (`~/.gemini`).
 - `codex/`: Codex configurations (`~/.codex`).
 - `codex-bin`: Custom Codex binary. It downloads the matching checksum-verified release asset from `MauriceDHanisch/codex` into `~/.local/opt/codex/<version>/`, links `codex` plus its helper binaries into `~/.local/bin/`, and links that release's `bin/` directory into `$CODEX_HOME/packages/standalone/current/` so `codex agents` can start the custom app-server. The installer selects Apple Silicon macOS or x86_64 Linux automatically. Existing official managed installs are preserved. Deselect it to retain an existing official Codex installation. Set `CODEX_RELEASE_TAG` to install a specific release instead of the latest one.
 - `cursor/`: Cursor configurations (`~/.cursor`): always-apply guidelines rule, `statusline.sh`, `cli-preferences.json`, and `permissions.json`. The live `~/.cursor/cli-config.json` stays local (auth/cache). On install, portable keys from `cli-preferences.json` are deep-merged into it (prefs win on conflict; machine-only keys are kept). `permissions.json` steers Auto-review via `autoRun.block_instructions` / `allow_instructions` (Cursor CLI has no Claude-style `ask` list; `deny` hard-blocks instead of prompting).
+- `muse/`: Muse Code global rules (`~/.config/muse/AGENTS.md`, symlinked to `guidelines.md` in the repo and installed as a regular copy). `settings.json` stays local (model choice, auth, workspace trust). Skills need no Muse-local copies: Muse reads user skills from `~/.agents/skills` (the `skills` component) and project skills from `<repo>/.agents/skills`, plus `~/.claude/skills` and `~/.codex/skills` for interop.
 - `skills/`: Shared agent skills (`~/.agents/skills`). Cursor also discovers skills from `~/.claude/skills/` and `~/.codex/skills/`, so no Cursor-local skill copies are needed.
 
 ## How to Manage

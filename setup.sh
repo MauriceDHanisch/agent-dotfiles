@@ -21,7 +21,7 @@ set -eo pipefail
 REPO_URL="${AGENT_DOTFILES_REPO:-https://github.com/MauriceDHanisch/agent-dotfiles.git}"
 TARGET_DIR="$HOME/.agent-dotfiles"
 BACKUP_DIR="$HOME/.agent-dotfiles-backup/$(date +%Y%m%d-%H%M%S)"
-ALL_COMPONENTS="claude gemini antigravity codex codex-bin cursor skills"
+ALL_COMPONENTS="claude gemini antigravity codex codex-bin cursor muse skills"
 
 MODE="install"
 args=()
@@ -52,6 +52,7 @@ desc_of() {
         codex)       echo "Codex           ~/.codex" ;;
         codex-bin)   echo "Custom Codex    ~/.local/bin/codex" ;;
         cursor)      echo "Cursor          ~/.cursor" ;;
+        muse)        echo "Muse Code       ~/.config/muse" ;;
         skills)      echo "Shared skills   ~/.agents/skills" ;;
     esac
 }
@@ -525,7 +526,7 @@ step "Components"
 TOT_REMOVED=0; TOT_RESTORED=0
 for COMPONENT in $COMPONENTS; do
     case $COMPONENT in
-        claude|gemini|antigravity|codex|cursor|skills)
+        claude|gemini|antigravity|codex|cursor|muse|skills)
             if [ "$MODE" = "uninstall" ]; then
                 uninstall_component "$COMPONENT"
             else

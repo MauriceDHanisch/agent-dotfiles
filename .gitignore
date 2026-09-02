@@ -15,6 +15,13 @@ gemini/.gemini/oauth_creds.json
 codex/.codex/auth.json
 codex/.codex/*.sqlite*
 
+# Muse local-only / machine state (never commit)
+muse/.config/muse/auth.json
+muse/.config/muse/trust.json
+muse/.config/muse/settings.json
+muse/.config/muse/skills/
+muse/.config/muse/*.lock
+
 # Cursor local-only / machine state (never symlink or commit)
 cursor/.cursor/projects/
 cursor/.cursor/chats/
