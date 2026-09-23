@@ -27,7 +27,15 @@
       "Bash(glab issue comment*)",
       "Bash(glab issue note*)"
     ],
-    "defaultMode": "acceptEdits"
+    "defaultMode": "auto"
+  },
+  "autoMode": {
+    "soft_deny": [
+      "$defaults",
+      "Git Staging: running `git add` in any form, unless the user asked for it",
+      "Git Commit and Push: any `git commit` or `git push`. Plain forms are already prompted by ask rules, so one reaching you bypassed them: block it and have the agent use the plain form",
+      "PRs, Issues and Comments: creating PRs, MRs or issues, or commenting on them, by any means. Plain `gh`/`glab` forms are already prompted by ask rules, so one reaching you bypassed them: block it and have the agent use the plain form"
+    ]
   },
   "hooks": {
     "Notification": [
@@ -124,5 +132,9 @@
   },
   "effortLevel": "medium",
   "tui": "fullscreen",
-  "skipAutoPermissionPrompt": true
+  "skipAutoPermissionPrompt": true,
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  }
 }
