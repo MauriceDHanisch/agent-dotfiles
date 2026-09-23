@@ -14,6 +14,13 @@ five_h=$(echo "$data" | jq -r '.rate_limits.five_hour.used_percentage // empty' 
 five_h_reset=$(echo "$data" | jq -r '.rate_limits.five_hour.resets_at // empty')
 seven_d=$(echo "$data" | jq -r '.rate_limits.seven_day.used_percentage // empty' | cut -d. -f1)
 seven_d_reset=$(echo "$data" | jq -r '.rate_limits.seven_day.resets_at // empty')
+transcript=$(echo "$data" | jq -r '.transcript_path // empty')
+
+# Models of running subagents: not interrupted, last assistant turn not end_turn, written in the last 5 min
+sub_models=$(for f in $(find "${transcript%.jsonl}/subagents" -name 'agent-*.jsonl' -newermt '-5 minutes' 2>/dev/null); do
+    tail -1 "$f" | grep -q 'Request interrupted by user' && continue
+    grep -h '"model"' "$f" | tail -1 | jq -r 'select(.message.stop_reason != "end_turn") | .message.model // empty'
+done | sed 's/^claude-//; s/-[0-9].*//' | sort | uniq -c | awk '{printf " %s×%s", $2, $1}')
 
 # Cross-platform epoch-to-date helper: epoch_to_date <epoch> <format>
 epoch_to_date() {
@@ -108,5 +115,5 @@ after_model=""
 [ -n "$effort" ] && [ "$effort" != "null" ] && after_model="${after_model} ${WHITE}${effort}${RESET}"
 
 # Output - clean two lines
-echo "${BBLUE}[${model}]${RESET} ${DGREY}│${RESET}${after_model} ${DGREY}│${RESET} ${DGREY}📁${RESET} ${WHITE}${directory}${RESET}${branch_str} ${DGREY}·${RESET} ${GREY}${used_fmt}/${window_fmt}${RESET}"
+echo "${BBLUE}[${model}]${RESET}${sub_models:+ ${BLUE}⤷${sub_models}${RESET}} ${DGREY}│${RESET}${after_model} ${DGREY}│${RESET} ${DGREY}📁${RESET} ${WHITE}${directory}${RESET}${branch_str} ${DGREY}·${RESET} ${GREY}${used_fmt}/${window_fmt}${RESET}"
 echo "${LGREY}[${RESET}${bar_color}${bar_fill}${RESET}${bar_empty}${LGREY}]${RESET} ${bar_color}${pct}%${RESET}${rate_str}"
