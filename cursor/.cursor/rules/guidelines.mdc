@@ -5,87 +5,41 @@ alwaysApply: true
 
 # Global Agent Guidelines
 
-These guidelines apply to **all workspaces** and interactions.
+These guidelines apply to all workspaces and interactions.
 
-## I. Environment & Terminal Operations (Universal Priority)
+## 1. Python environment
 
-**CRITICAL**: Before running any Python scripts, tests, or installing packages via the terminal, you **MUST** ensure the correct environment is active.
+Use `uv run <cmd>` (e.g. `uv run python ...`, `uv run pytest`). This needs no activation and avoids permission prompts. If `uv` is unavailable, fall back to `source .venv/bin/activate` (adjust path as needed). Use conda only when no `.venv`, `venv`, or `env` directory exists.
 
-### 1. Execution Strategy
-1. **Check for Local Venv (Priority)**:
-   - Look for a directory named `.venv`, `venv`, or `env` in the project root. The user normally uses uv.
-   - *Action*: If `uv` is available (`command -v uv`), prefer `uv run <cmd>` (e.g. `uv run python ...`, `uv run pytest`), which needs no activation and avoids permission prompts. Otherwise fall back to activating the venv with `source .venv/bin/activate` (adjust path as needed).
-2. **Check for Conda (Fallback)**:
-   - If no local venv exists, infer the Conda environment name (often matches project folder name, course number like `144`, or project title).
-   - *Action*: Run `conda activate <inferred_name>`. If unsure, run `conda env list`.
+## 2. Modes: prototype (default) vs solid (opt in)
 
-### 2. Environment Verification
-- **Prompt Check**: Always check the current terminal prompt (e.g., `(base)` vs `(densityNO)`) before executing. If the prompt implies the wrong environment, activate the correct one immediately.
-- **Path Check**: If uncertain, run `which python` to verify the active interpreter path.
+Default is prototype mode. Optimize for speed and readability. Prefer flat scripts over abstractions. Cover the happy path only. Add no tests, no error handling, and no future proofing unless asked.
 
-### 3. Code Verification
-- **Hooks & Tests**: Always run `./.git/hooks/pre-commit`. If the hook is empty or does not exist, you must run the project's tests manually to ensure code integrity.
+Solid mode applies only when the user explicitly asks with words such as "reusable", "solid", "production", or "thesis pipeline". Write like a senior engineer minimizing lines of code: small functions, no duplication, no dead code, minimal API surface. Add tests only when asked. Add nothing speculative.
 
-### 4. Math Formatting in Terminal Output
-- **No LaTeX in chat**: When replying in the terminal (not editing a `.tex`/`.md` file that renders), never use LaTeX delimiters (`$...$`, `$$...$$`, `\frac`, `\sqrt`, etc.). LaTeX source is hard to read unrendered.
-- **Use readable plain-text math**: Write expressions with Unicode symbols and clear spacing.
-  - Superscripts/subscripts: `x²`, `aₙ`, `H₂O` (or `x^2`, `a_n` when Unicode is awkward).
-  - Common symbols: `√`, `∑`, `∫`, `∂`, `∇`, `≈`, `≤`, `≥`, `≠`, `→`, `±`, `×`, `·`, `∞`, Greek letters (`α`, `β`, `θ`, `λ`, `μ`, `σ`, `π`).
-  - Fractions inline as `a / b`; for multi-line derivations use plain-text rows with the `=` signs lined up.
-  - Vectors/matrices: lay out with spacing or simple bracket rows, not `\begin{matrix}`.
-- **Exception**: Use LaTeX only when the target is a file that actually renders it (a `.tex` document, or Markdown the user will view in a LaTeX-rendering viewer). If unsure whether the destination renders, default to plain-text math.
+## 3. Minimal code, no comments, no overengineering
 
-### 5. Punctuation (Universal, No Exceptions)
-- **Never use the em dash (—)**, and never substitute it with a double hyphen (`--`), en dash (`–`), or similar. This applies everywhere you generate text: chat replies, code comments, docstrings, commit messages, documentation, and any file content.
-- **Use instead**: a comma, a colon, a semicolon, parentheses, or split into two sentences.
-- Note: a `--` used as an actual CLI flag (e.g. `git commit --amend`, `rm -rf --no-preserve-root`) is not a dash and is unaffected by this rule.
+Write minimal code with minimal prose. No comments unless the logic is non obvious and cannot be made obvious by renaming. Never narrate syntax, never add step tracking comments, never add docstrings to trivial functions, never summarize changes in code. If renaming removes the need for a comment, rename instead of commenting.
 
----
+Do not overengineer. No classes when a function works. No helpers used once. No config, factory, or wrapper layers for a single use case. No verbose output: answer briefly and skip fluff.
 
-## II. Coding & Output Standards (Context-Dependent)
+## 4. Math formatting in chat
 
-**Check the Context**: Is the user asking for help with a **Homework/Problem Set** or a **Professional/Research Project**?
+When replying in chat (not editing a `.tex` file or Markdown that renders), never use LaTeX delimiters (`$...$`, `$$...$$`, `\frac`, `\sqrt`, etc.). LaTeX source is hard to read unrendered.
 
-### Context A: Professional, Research & Default
-*Trigger: Default case (Research, Dev, Engineering).*
+Use readable plain text math with Unicode symbols and clear spacing. Superscripts and subscripts: `x²`, `aₙ`, `H₂O` (or `x^2`, `a_n` when Unicode is awkward). Common symbols: `√`, `∑`, `∫`, `∂`, `∇`, `≈`, `≤`, `≥`, `≠`, `→`, `±`, `×`, `·`, `∞`, Greek letters (`α`, `β`, `θ`, `λ`, `μ`, `σ`, `π`). Write fractions inline as `a / b`. For multi line derivations, use plain text rows with the `=` signs lined up. Lay out vectors and matrices with spacing or simple bracket rows, not `\begin{matrix}`.
 
-- **Goal**: High-quality Industry Standard Engineering.
-- **Code Style**:
-  - **Structure**: Modular, robust, and scalable. Use classes, functions, and proper abstractions.
-  - **Commenting**: Use comments according to industry standards. You may use comments during the drafting phase for internal reasoning or step tracking, but you must clean them up before final delivery. Final comments should be minimal, focusing on the "why" rather than the "how," and should follow standard docstring practices.
-  - **Best Practices**:
-    - Use Type Hinting (`typing`) where helpful.
-    - **Error handling**: Only catch exceptions you can concretely handle. Never silently swallow exceptions. If catching to add context, always re-raise (`raise ... from e`). If catching at a boundary for logging, log then re-raise (`raise`). A bare `except: pass` or catching broadly and continuing as if nothing happened is always wrong — it creates silent bugs that are harder to debug than the original exception.
-    - Follow PEP 8 standards.
-  - **Performance**: Optimize for speed and memory efficiency (especially for ML/Data tasks).
-  - **Git / Commits**:
-    - **Convention**: Use Conventional Commits (`feat:`, `fix:`, `chore:`, etc.).
-    - **Casing**: **Strictly use lowercase** for the subject description (e.g., `feat: add new layer`, NOT `feat: Add new layer`).
-    - **Co-authors**: **Never add Claude as co-author in commits.** Do not include `Co-Authored-By: Claude ...` lines in any commit messages. Always commit with only human authors.
-  - **Test Organization (REQUIRED)**:
-    - **MUST**: Place all test files in a `tests/` directory that **exactly mirrors** the `src/` structure.
-      - `src/utils/helper.py` → `tests/utils/test_helper.py`
-      - `src/models/user.py` → `tests/models/test_user.py`
-      - `src/api/endpoints/auth.py` → `tests/api/endpoints/test_auth.py`
-    - **File Naming**: All test files **must** be prefixed with `test_` (e.g., `test_helper.py`, `test_auth.py`).
-    - **Directory Structure**: Create directories in `tests/` to match `src/` hierarchy. Do not flatten test files into a single directory.
-    - **Violations**: If you create test files outside this structure, fix the organization before committing. Do not merge PRs or commit code with disorganized tests.
-- **Writing Tone**:
-  - **Tone**: Academic (ML, Physics or Chemistry papers at high quality journals), technical, and concise. Avoid the "AI accent" (e.g., avoid "It is worth noting," "In conclusion," "Let's delve into," or "I have successfully..."). The quality should match a seasoned author published in Nature or Science.
-  - **Vocabulary**: Use simple but precise technical language. Avoid overly complex synonyms when simpler ones work (e.g., use "use" instead of "utilize," "fix" instead of "rectify," "show" instead of "demonstrate").
-  - **Style**: Focus on direct technical communication. Use active voice where appropriate for clarity but maintain the rigorous objectivity expected in top-tier journals.
-  - **Punctuation**: See Section I.5 (no em dash, no `--` substitute, anywhere).
+Use LaTeX only when the target file actually renders it. If unsure whether the destination renders, default to plain text math.
 
-### Context B: Educational & Learning-Focused Work
-*Trigger: prompts mentioning "pset", "homework", "class", "assignment", or academic coursework.*
+## 5. Punctuation
 
-- **Code Style**:
-  - **Structure**: Keep scripts simple and linear (script-based). Avoid complex classes or patterns unless explicitly asked.
-  - **Readability**: Prioritize basic clarity over clever optimization.
-  - **Comments**: Sparse. Only explain *why* a tricky step was taken. Do not narrate syntax.
-- **Writing Tone**:
-  - **Tone**: Use a direct, first-person or neutral academic voice. Avoid the "AI accent" (e.g., avoid phrases like "It is worth noting," "In conclusion," "A comprehensive analysis reveals," or "delve into").
-  - **Vocabulary**: Use simple, clear, and unpretentious language. Do not use complex synonyms when a simple word works better (e.g., use "use" instead of "utilize").
-  - **Content**: Be explicit in your explanations. Fully explain reasoning and derivation in accessible terms.
-  - **Structure**: Answer the question directly. Do not add fluff or filler sentences.
-  - **Punctuation**: See Section I.5 (no em dash, no `--` substitute, anywhere).
+Banned characters in all output (chat, code, code comments, commits, docs): — and –. Banned punctuation use of double hyphens, including spaced form (word, double hyphen, word) and any range or separator use. The only allowed double hyphen is a real CLI flag (e.g. `git commit --amend`). Never use any of these as a pause or separator. Rewrite the sentence with a comma, a colon, or two sentences instead.
+
+## 6. Testing
+
+Write tests only when asked, in either mode. When you do:
+
+- Use end to end tests as the only testing mechanism. Prove a complex feature works by running the real entry point on real or realistic input.
+- Every E2E run ends with a verifiable, repeatable artifact: an output file, metrics JSON, log, plot, or screenshot, produced by one rerunnable command with fixed seeds and inputs.
+- Never write unit tests after the code exists. They only confirm what the code already does.
+- If a component must be tested in isolation, first list every way it can fail, then write tests for those failure modes, then write the code.

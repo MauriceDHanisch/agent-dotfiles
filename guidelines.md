@@ -29,3 +29,12 @@ Use LaTeX only when the target file actually renders it. If unsure whether the d
 ## 5. Punctuation
 
 Banned characters in all output (chat, code, code comments, commits, docs): — and –. Banned punctuation use of double hyphens, including spaced form (word, double hyphen, word) and any range or separator use. The only allowed double hyphen is a real CLI flag (e.g. `git commit --amend`). Never use any of these as a pause or separator. Rewrite the sentence with a comma, a colon, or two sentences instead.
+
+## 6. Testing
+
+Write tests only when asked, in either mode. When you do:
+
+- Use end to end tests as the only testing mechanism. Prove a complex feature works by running the real entry point on real or realistic input.
+- Every E2E run ends with a verifiable, repeatable artifact: an output file, metrics JSON, log, plot, or screenshot, produced by one rerunnable command with fixed seeds and inputs.
+- Never write unit tests after the code exists. They only confirm what the code already does.
+- If a component must be tested in isolation, first list every way it can fail, then write tests for those failure modes, then write the code.
