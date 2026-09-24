@@ -15,12 +15,16 @@ five_h_reset=$(echo "$data" | jq -r '.rate_limits.five_hour.resets_at // empty')
 seven_d=$(echo "$data" | jq -r '.rate_limits.seven_day.used_percentage // empty' | cut -d. -f1)
 seven_d_reset=$(echo "$data" | jq -r '.rate_limits.seven_day.resets_at // empty')
 transcript=$(echo "$data" | jq -r '.transcript_path // empty')
+in_raw=$(echo "$data" | jq -r '.context_window.current_usage.input_tokens // 0')
+cache_w=$(echo "$data" | jq -r '.context_window.current_usage.cache_creation_input_tokens // 0')
+cache_r=$(echo "$data" | jq -r '.context_window.current_usage.cache_read_input_tokens // 0')
+last_out=$(echo "$data" | jq -r '.context_window.current_usage.output_tokens // 0')
 
 # Models of running subagents: not interrupted, last assistant turn not end_turn, written in the last 5 min
 sub_models=$(for f in $(find "${transcript%.jsonl}/subagents" -name 'agent-*.jsonl' -newermt '-5 minutes' 2>/dev/null); do
     tail -1 "$f" | grep -q 'Request interrupted by user' && continue
     grep -h '"model"' "$f" | tail -1 | jq -r 'select(.message.stop_reason != "end_turn") | .message.model // empty'
-done | sed 's/^claude-//; s/-[0-9].*//' | sort | uniq -c | awk '{printf " %s×%s", $2, $1}')
+done | sed 's/^claude-//; s/-[0-9].*//' | sort | uniq -c | awk '{printf " %s x%s", $2, $1}')
 
 # Cross-platform epoch-to-date helper: epoch_to_date <epoch> <format>
 epoch_to_date() {
@@ -77,10 +81,16 @@ empty=$((12 - filled))
 bar_fill=$(printf '━%.0s' $(seq 1 "$filled"))
 bar_empty=$(printf ' %.0s' $(seq 1 "$empty"))
 
+last_in=$((in_raw + cache_w + cache_r))
+last_str=""
+if [ "$last_in" -gt 0 ]; then
+    last_str=" ${DGREY}│${RESET} ${WHITE}last:${RESET} ${GREY}↑$(format_tokens "$last_in") ↓$(format_tokens "$last_out")${RESET} ${BLUE}$((cache_r * 100 / last_in))% cached${RESET}"
+fi
+
 # Build rate limit string with reset times
 rate_str=""
 if [ -n "$five_h" ] && [ "$five_h" != "empty" ]; then
-    rate_str="${rate_str} ${DGREY}│${RESET} ${WHITE}5h:${RESET} ${BLUE}${five_h}%${RESET}"
+    rate_str="${rate_str}${WHITE}5h:${RESET} ${BLUE}${five_h}%${RESET}"
     if [ -n "$five_h_reset" ] && [ "$five_h_reset" != "empty" ]; then
         now=$(date +%s)
         secs=$((five_h_reset - now))
@@ -115,5 +125,6 @@ after_model=""
 [ -n "$effort" ] && [ "$effort" != "null" ] && after_model="${after_model} ${WHITE}${effort}${RESET}"
 
 # Output - clean two lines
-echo "${BBLUE}[${model}]${RESET}${sub_models:+ ${BLUE}⤷${sub_models}${RESET}} ${DGREY}│${RESET}${after_model} ${DGREY}│${RESET} ${DGREY}📁${RESET} ${WHITE}${directory}${RESET}${branch_str} ${DGREY}·${RESET} ${GREY}${used_fmt}/${window_fmt}${RESET}"
-echo "${LGREY}[${RESET}${bar_color}${bar_fill}${RESET}${bar_empty}${LGREY}]${RESET} ${bar_color}${pct}%${RESET}${rate_str}"
+echo "${BBLUE}[${model}]${RESET} ${DGREY}│${RESET}${after_model} ${DGREY}│${RESET} ${DGREY}📁${RESET} ${WHITE}${directory}${RESET}${branch_str}"
+echo "${LGREY}[${RESET}${bar_color}${bar_fill}${RESET}${bar_empty}${LGREY}]${RESET} ${bar_color}${pct}%${RESET} ${GREY}${used_fmt}/${window_fmt}${RESET}${last_str}"
+echo "${rate_str}${rate_str:+ ${DGREY}│${RESET} }${WHITE}agents:${RESET}${BLUE}${sub_models:- none}${RESET}"
