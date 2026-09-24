@@ -1,1 +1,0 @@
-../../../../skills/.agents/skills/tdd-workflow/SKILL.md

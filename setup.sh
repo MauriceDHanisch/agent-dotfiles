@@ -7,7 +7,7 @@
 # With no arguments on an interactive terminal it shows a key-driven picker for
 # which components to install (default: all selected). Pass names to skip it:
 #
-#   curl -fsSL .../setup.sh | bash -s -- claude skills
+#   curl -fsSL .../setup.sh | bash -s -- claude codex
 #
 # Pass --uninstall to remove managed files that still match the repository
 # version, restoring the most recent pre-install backup for each path when one
@@ -15,13 +15,13 @@
 # ~/.agent-dotfiles and any local-only files are left untouched:
 #
 #   curl -fsSL .../setup.sh | bash -s -- --uninstall
-#   curl -fsSL .../setup.sh | bash -s -- --uninstall claude skills
+#   curl -fsSL .../setup.sh | bash -s -- --uninstall claude codex
 set -eo pipefail
 
 REPO_URL="${AGENT_DOTFILES_REPO:-https://github.com/MauriceDHanisch/agent-dotfiles.git}"
 TARGET_DIR="$HOME/.agent-dotfiles"
 BACKUP_DIR="$HOME/.agent-dotfiles-backup/$(date +%Y%m%d-%H%M%S)"
-ALL_COMPONENTS="claude gemini antigravity codex codex-bin cursor muse skills"
+ALL_COMPONENTS="claude gemini antigravity codex codex-bin cursor muse"
 
 MODE="install"
 args=()
@@ -53,7 +53,6 @@ desc_of() {
         codex-bin)   echo "Custom Codex    ~/.local/bin/codex" ;;
         cursor)      echo "Cursor          ~/.cursor" ;;
         muse)        echo "Muse Code       ~/.config/muse" ;;
-        skills)      echo "Shared skills   ~/.agents/skills" ;;
     esac
 }
 
@@ -526,7 +525,7 @@ step "Components"
 TOT_REMOVED=0; TOT_RESTORED=0
 for COMPONENT in $COMPONENTS; do
     case $COMPONENT in
-        claude|gemini|antigravity|codex|cursor|muse|skills)
+        claude|gemini|antigravity|codex|cursor|muse)
             if [ "$MODE" = "uninstall" ]; then
                 uninstall_component "$COMPONENT"
             else
@@ -564,6 +563,6 @@ else
         printf '  %sconflicting files moved to %s%s\n' "$D" "$BACKUP_DIR" "$X"
     fi
     printf '  %slocal-only files (history, credentials, sessions) preserved%s\n' "$D" "$X"
-    printf '  %sinstall a subset:%s curl -fsSL .../setup.sh | bash -s -- claude skills\n' "$D" "$X"
+    printf '  %sinstall a subset:%s curl -fsSL .../setup.sh | bash -s -- claude codex\n' "$D" "$X"
     printf '  %suninstall:%s curl -fsSL .../setup.sh | bash -s -- --uninstall\n\n' "$D" "$X"
 fi

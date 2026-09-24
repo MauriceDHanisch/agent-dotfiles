@@ -11,11 +11,11 @@ curl -fsSL https://raw.githubusercontent.com/MauriceDHanisch/agent-dotfiles/main
 
 **Install specific agents only:**
 ```bash
-# Example: Only Claude and Shared Skills
-curl -fsSL https://raw.githubusercontent.com/MauriceDHanisch/agent-dotfiles/main/setup.sh | bash -s -- claude skills
+# Example: Only Claude and Codex
+curl -fsSL https://raw.githubusercontent.com/MauriceDHanisch/agent-dotfiles/main/setup.sh | bash -s -- claude codex
 ```
 
-Valid components: `claude`, `gemini`, `antigravity`, `codex`, `codex-bin`, `cursor`, `muse`, `skills`.
+Valid components: `claude`, `gemini`, `antigravity`, `codex`, `codex-bin`, `cursor`, `muse`.
 
 ## Uninstall
 
@@ -42,16 +42,14 @@ Local-only files (history, credentials, sessions, sqlite dbs) are left untouched
 - `codex/`: Codex configurations (`~/.codex`).
 - `codex-bin`: Custom Codex binary. It downloads the matching checksum-verified release asset from `MauriceDHanisch/codex` into `~/.local/opt/codex/<version>/`, links `codex` plus its helper binaries into `~/.local/bin/`, and links that release's `bin/` directory into `$CODEX_HOME/packages/standalone/current/` so `codex agents` can start the custom app-server. The installer selects Apple Silicon macOS or x86_64 Linux automatically. Existing official managed installs are preserved. Deselect it to retain an existing official Codex installation. Set `CODEX_RELEASE_TAG` to install a specific release instead of the latest one.
 - `cursor/`: Cursor configurations (`~/.cursor`): always-apply guidelines rule, `statusline.sh`, `cli-preferences.json`, and `permissions.json`. The live `~/.cursor/cli-config.json` stays local (auth/cache). On install, portable keys from `cli-preferences.json` are deep-merged into it (prefs win on conflict; machine-only keys are kept). `permissions.json` steers Auto-review via `autoRun.block_instructions` / `allow_instructions` (Cursor CLI has no Claude-style `ask` list; `deny` hard-blocks instead of prompting).
-- `muse/`: Muse Code global rules (`~/.config/muse/AGENTS.md`, symlinked to `guidelines.md` in the repo and installed as a regular copy). `settings.json` stays local (model choice, auth, workspace trust). Skills need no Muse-local copies: Muse reads user skills from `~/.agents/skills` (the `skills` component) and project skills from `<repo>/.agents/skills`, plus `~/.claude/skills` and `~/.codex/skills` for interop.
-- `skills/`: Shared agent skills (`~/.agents/skills`). Cursor also discovers skills from `~/.claude/skills/` and `~/.codex/skills/`, so no Cursor-local skill copies are needed.
+- `muse/`: Muse Code global rules (`~/.config/muse/AGENTS.md`, symlinked to `guidelines.md` in the repo and installed as a regular copy). `settings.json` stays local (model choice, auth, workspace trust).
 
 ## How to Manage
 
 1. **Edit Guidelines**: Modify `guidelines.md` at the root, commit and push it, then re-run the installer. This copies the update into every agent's live configuration, including Cursor's regenerated `guidelines.mdc`.
 2. **Edit Cursor CLI prefs**: Change `cursor/.cursor/cli-preferences.json`, then re-run `bash setup.sh cursor` to deep-merge into `~/.cursor/cli-config.json`.
 3. **Edit Auto-review ask/block policy**: Change `cursor/.cursor/permissions.json` (`autoRun`), then re-run the installer to copy it to `~/.cursor/permissions.json`.
-4. **Add Skills**: Add new skill folders under `skills/.agents/skills/`.
-5. **Sync**:
+4. **Sync**:
    ```bash
    cd ~/.agent-dotfiles
    git add .
@@ -88,6 +86,3 @@ disables the official updater:
 CODEX_RELEASE_TAG=v0.147.0-maurice.1 bash setup.sh codex-bin
 ```
 
-## Credits
-
-- The `tdd-workflow` skill is adapted from [ryanliu30/claude-setup](https://github.com/ryanliu30/claude-setup), which in turn credits [affaan-m/everything-claude-code](https://github.com/affaan-m/everything-claude-code).
