@@ -1,0 +1,8 @@
+{
+  "name": "dotfiles",
+  "base": "dark",
+  "overrides": {
+    "warning": "#64d264",
+    "warningShimmer": "#a0e6a0"
+  }
+}
