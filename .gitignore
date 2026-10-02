@@ -37,3 +37,5 @@ cursor/.cursor/statusline.last.json
 .DS_Store
 *.token
 *.log
+
+claude/.claude/mods/*/.claude-plugin/types/

@@ -117,7 +117,7 @@
   "statusLine": {
     "type": "command",
     "command": "bash ~/.claude/statusline.sh",
-    "refreshInterval": 5
+    "refreshInterval": 1
   },
   "enabledPlugins": {
     "agent-deck@agent-deck": true
@@ -137,5 +137,8 @@
     "commit": "",
     "pr": ""
   },
-  "theme": "custom:dotfiles"
+  "theme": "custom:dotfiles",
+  "env": {
+    "CLAUDE_CODE_PLUGIN_DIRS": "~/.claude/mods/agent-models"
+  }
 }

@@ -1,0 +1,1 @@
+{ "name": "agent-models", "version": "0.1.0", "description": "Writes running subagent models to a file the statusline reads" }
