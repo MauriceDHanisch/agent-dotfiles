@@ -3,37 +3,42 @@
 data=$(cat)
 
 # Parse JSON with jq
-model=$(echo "$data" | jq -r '.model.display_name // "Claude"' | sed 's/ (.*)//')
-directory=$(echo "$data" | jq -r '.workspace.current_dir // "."' | xargs basename)
-pct=$(echo "$data" | jq -r '.context_window.used_percentage // 0' | cut -d. -f1)
-window_size=$(echo "$data" | jq -r '.context_window.context_window_size // 0')
-used_tokens=$(echo "$data" | jq -r '(.context_window.total_input_tokens // 0) + (.context_window.total_output_tokens // 0)')
-thinking=$(echo "$data" | jq -r '.thinking.enabled // false')
-effort=$(echo "$data" | jq -r '.effort.level // ""')
-five_h=$(echo "$data" | jq -r '.rate_limits.five_hour.used_percentage // empty' | cut -d. -f1)
-five_h_reset=$(echo "$data" | jq -r '.rate_limits.five_hour.resets_at // empty')
-seven_d=$(echo "$data" | jq -r '.rate_limits.seven_day.used_percentage // empty' | cut -d. -f1)
-seven_d_reset=$(echo "$data" | jq -r '.rate_limits.seven_day.resets_at // empty')
-transcript=$(echo "$data" | jq -r '.transcript_path // empty')
-in_raw=$(echo "$data" | jq -r '.context_window.current_usage.input_tokens // 0')
-cache_w=$(echo "$data" | jq -r '.context_window.current_usage.cache_creation_input_tokens // 0')
-cache_r=$(echo "$data" | jq -r '.context_window.current_usage.cache_read_input_tokens // 0')
-last_out=$(echo "$data" | jq -r '.context_window.current_usage.output_tokens // 0')
+eval "$(echo "$data" | jq -r '
+  @sh "model=\(.model.display_name // "Claude" | sub(" \\(.*"; ""))",
+  @sh "directory=\(.workspace.current_dir // "." | split("/") | last)",
+  @sh "pct=\(.context_window.used_percentage // 0 | floor)",
+  @sh "window_size=\(.context_window.context_window_size // 0)",
+  @sh "used_tokens=\((.context_window.total_input_tokens // 0) + (.context_window.total_output_tokens // 0))",
+  @sh "thinking=\(.thinking.enabled // false)",
+  @sh "effort=\(.effort.level // "")",
+  @sh "five_h=\(.rate_limits.five_hour.used_percentage // "" | if . == "" then . else floor end)",
+  @sh "five_h_reset=\(.rate_limits.five_hour.resets_at // "")",
+  @sh "seven_d=\(.rate_limits.seven_day.used_percentage // "" | if . == "" then . else floor end)",
+  @sh "seven_d_reset=\(.rate_limits.seven_day.resets_at // "")",
+  @sh "transcript=\(.transcript_path // "")",
+  @sh "session_id=\(.session_id // "")",
+  @sh "in_raw=\(.context_window.current_usage.input_tokens // 0)",
+  @sh "cache_w=\(.context_window.current_usage.cache_creation_input_tokens // 0)",
+  @sh "cache_r=\(.context_window.current_usage.cache_read_input_tokens // 0)",
+  @sh "last_out=\(.context_window.current_usage.output_tokens // 0)"
+')"
 
 # Models of running subagents: not interrupted, last assistant turn not end_turn, written in the last 5 min
-sub_models=$(for f in $(find "${transcript%.jsonl}/subagents" -name 'agent-*.jsonl' -newermt '-5 minutes' 2>/dev/null); do
-    tail -1 "$f" | grep -q 'Request interrupted by user' && continue
-    grep -h '"model"' "$f" | tail -1 | jq -r 'select(.message.stop_reason != "end_turn") | .message.model // empty'
-done | sed 's/^claude-//; s/-[0-9].*//' | sort | uniq -c | awk '{printf " %s x%s", $2, $1}')
-
-# Cross-platform epoch-to-date helper: epoch_to_date <epoch> <format>
-epoch_to_date() {
-    if [[ "$(uname)" == "Darwin" ]]; then
-        date -r "$1" +"$2" 2>/dev/null
-    else
-        date -d "@$1" +"$2" 2>/dev/null
-    fi
-}
+agents_file="/tmp/claude-agents-${session_id}"
+IFS=$'\t' read -r viewed_model viewed_effort 2>/dev/null < "/tmp/claude-view-${session_id}"
+if [ -n "$viewed_model" ]; then
+    model="⤷ ${viewed_model}"
+    effort="$viewed_effort"
+    [ -n "$effort" ] || thinking=""
+fi
+if [ -f "$agents_file" ]; then
+    sub_models=$(<"$agents_file")
+else
+    sub_models=$(for f in $(find "${transcript%.jsonl}/subagents" -name 'agent-*.jsonl' -newermt '-5 minutes' 2>/dev/null); do
+        tail -1 "$f" | grep -q 'Request interrupted by user' && continue
+        grep -h '"model"' "$f" | tail -1 | jq -r 'select(.message.stop_reason != "end_turn") | .message.model // empty'
+    done | sed 's/^claude-//; s/-[0-9].*//' | sort | uniq -c | awk '{printf " %s x%s", $2, $1}' | sed 's/^ //')
+fi
 
 # Colors
 BLUE=$'\e[38;2;140;200;240m'
@@ -53,9 +58,9 @@ branch_str=""
 format_tokens() {
     local n=$1
     if [ "$n" -ge 1000000 ]; then
-        printf "%.1fM" "$(echo "$n / 1000000" | bc -l)"
+        printf "%d.%dM" $(((n + 50000) / 1000000)) $((((n + 50000) % 1000000) / 100000))
     elif [ "$n" -ge 1000 ]; then
-        printf "%.0fk" "$(echo "$n / 1000" | bc -l)"
+        printf "%dk" $(((n + 500) / 1000))
     else
         echo "$n"
     fi
@@ -78,8 +83,9 @@ fi
 # Build bar
 filled=$((pct * 12 / 100))
 empty=$((12 - filled))
-bar_fill=$(printf '━%.0s' $(seq 1 "$filled"))
-bar_empty=$(printf ' %.0s' $(seq 1 "$empty"))
+printf -v bar_fill '%*s' "$filled" ''
+bar_fill=${bar_fill// /━}
+printf -v bar_empty '%*s' "$empty" ''
 
 last_in=$((in_raw + cache_w + cache_r))
 last_str=""
@@ -92,8 +98,7 @@ rate_str=""
 if [ -n "$five_h" ] && [ "$five_h" != "empty" ]; then
     rate_str="${rate_str}${WHITE}5h:${RESET} ${BLUE}${five_h}%${RESET}"
     if [ -n "$five_h_reset" ] && [ "$five_h_reset" != "empty" ]; then
-        now=$(date +%s)
-        secs=$((five_h_reset - now))
+        secs=$((five_h_reset - EPOCHSECONDS))
         if [ $secs -gt 0 ]; then
             mins=$((secs / 60))
             hours=$((mins / 60))
@@ -110,21 +115,17 @@ fi
 if [ -n "$seven_d" ] && [ "$seven_d" != "empty" ]; then
     rate_str="${rate_str} ${DGREY}│${RESET} ${WHITE}7d:${RESET} ${BLUE}${seven_d}%${RESET}"
     if [ -n "$seven_d_reset" ] && [ "$seven_d_reset" != "empty" ]; then
-        now=$(date +%s)
-        reset_date=$(epoch_to_date "$seven_d_reset" "%a %H:%M")
+        printf -v reset_date '%(%a %H:%M)T' "$seven_d_reset"
         [ -n "$reset_date" ] && rate_str="${rate_str} ${LGREY}(${reset_date})${RESET}"
     fi
 fi
 
 # Thinking & effort — appended inside model brackets, non-bold blue
-BLUE_NB=$'\e[38;2;140;200;240m'
-model_suffix=""
-
 after_model=""
 [ "$thinking" = "true" ] && after_model="${after_model} 🧠"
 [ -n "$effort" ] && [ "$effort" != "null" ] && after_model="${after_model} ${WHITE}${effort}${RESET}"
 
 # Output - clean two lines
-echo "${BBLUE}[${model}]${RESET} ${DGREY}│${RESET}${after_model} ${DGREY}│${RESET} ${DGREY}📁${RESET} ${WHITE}${directory}${RESET}${branch_str}"
+echo "${BBLUE}[${model}]${RESET} ${DGREY}│${RESET}${after_model:+${after_model} ${DGREY}│${RESET}} ${DGREY}📁${RESET} ${WHITE}${directory}${RESET}${branch_str}"
 echo "${LGREY}[${RESET}${bar_color}${bar_fill}${RESET}${bar_empty}${LGREY}]${RESET} ${bar_color}${pct}%${RESET} ${GREY}${used_fmt}/${window_fmt}${RESET}${last_str}"
-echo "${rate_str}${rate_str:+ ${DGREY}│${RESET} }${WHITE}agents:${RESET}${BLUE}${sub_models:- none}${RESET}"
+echo "${rate_str}${rate_str:+ ${DGREY}│${RESET} }${WHITE}agents:${RESET}${BLUE} ${sub_models:-none}${RESET}"
