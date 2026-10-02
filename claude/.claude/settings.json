@@ -120,7 +120,8 @@
     "refreshInterval": 1
   },
   "enabledPlugins": {
-    "agent-deck@agent-deck": true
+    "agent-deck@agent-deck": true,
+    "cc-plugin-you-should-know@builtin": true
   },
   "extraKnownMarketplaces": {
     "agent-deck": {
