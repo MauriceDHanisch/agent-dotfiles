@@ -12,9 +12,9 @@ eval "$(echo "$data" | jq -r '
   @sh "thinking=\(.thinking.enabled // false)",
   @sh "effort=\(.effort.level // "")",
   @sh "five_h=\(.rate_limits.five_hour.used_percentage // "" | if . == "" then . else floor end)",
-  @sh "five_h_reset=\(.rate_limits.five_hour.resets_at // "")",
+  @sh "five_h_secs=\(.rate_limits.five_hour.resets_at // "" | if . == "" then . else . - now | floor end)",
   @sh "seven_d=\(.rate_limits.seven_day.used_percentage // "" | if . == "" then . else floor end)",
-  @sh "seven_d_reset=\(.rate_limits.seven_day.resets_at // "")",
+  @sh "reset_date=\(.rate_limits.seven_day.resets_at // "" | if . == "" then . else strflocaltime("%a %H:%M") end)",
   @sh "transcript=\(.transcript_path // "")",
   @sh "session_id=\(.session_id // "")",
   @sh "in_raw=\(.context_window.current_usage.input_tokens // 0)",
@@ -97,8 +97,8 @@ fi
 rate_str=""
 if [ -n "$five_h" ] && [ "$five_h" != "empty" ]; then
     rate_str="${rate_str}${WHITE}5h:${RESET} ${BLUE}${five_h}%${RESET}"
-    if [ -n "$five_h_reset" ] && [ "$five_h_reset" != "empty" ]; then
-        secs=$((five_h_reset - EPOCHSECONDS))
+    if [ -n "$five_h_secs" ]; then
+        secs=$five_h_secs
         if [ $secs -gt 0 ]; then
             mins=$((secs / 60))
             hours=$((mins / 60))
@@ -114,10 +114,7 @@ fi
 
 if [ -n "$seven_d" ] && [ "$seven_d" != "empty" ]; then
     rate_str="${rate_str} ${DGREY}│${RESET} ${WHITE}7d:${RESET} ${BLUE}${seven_d}%${RESET}"
-    if [ -n "$seven_d_reset" ] && [ "$seven_d_reset" != "empty" ]; then
-        printf -v reset_date '%(%a %H:%M)T' "$seven_d_reset"
-        [ -n "$reset_date" ] && rate_str="${rate_str} ${LGREY}(${reset_date})${RESET}"
-    fi
+    [ -n "$reset_date" ] && rate_str="${rate_str} ${LGREY}(${reset_date})${RESET}"
 fi
 
 # Thinking & effort — appended inside model brackets, non-bold blue
