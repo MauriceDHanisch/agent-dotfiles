@@ -2,7 +2,7 @@ import type { Register } from 'claude-code'
 
 type Fs = { fs: { write: (path: string, text: string) => Promise<void> } }
 
-let seen: { models: Record<string, string>; efforts: Record<string, string> } = { models: {}, efforts: {} }
+let seen: { models: Record<string, string>; efforts: Record<string, string>; usage: Record<string, number[]> } = { models: {}, efforts: {}, usage: {} }
 let sessionId = ''
 let viewedId: string | undefined
 let lastView: string | undefined
@@ -17,7 +17,7 @@ const saveSeen = ($: Fs) => (sessionId ? $.fs.write(seenFile(), JSON.stringify(s
 
 const writeView = async ($: Fs) => {
   const model = viewedId && seen.models[viewedId]
-  const view = model ? `${pretty(model)}\t${seen.efforts[viewedId!] ?? ''}` : ''
+  const view = model ? [pretty(model), seen.efforts[viewedId!] ?? '', ...(seen.usage[viewedId!] ?? [])].join('|') : ''
   if (sessionId && view !== lastView) await $.fs.write(`/tmp/claude-view-${sessionId}`, (lastView = view))
 }
 
@@ -39,6 +39,17 @@ export const register: Register = on => {
     return next(e)
   })
 
+  on('turn.step', async function* ($, e, next) {
+    const step = yield* next(e)
+    const u = step.usage
+    if (e.agentId && u) {
+      seen.usage[e.agentId] = [u.input_tokens, u.cache_creation_input_tokens, u.cache_read_input_tokens, u.output_tokens]
+      await saveSeen($)
+      await writeView($)
+    }
+    return step
+  })
+
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     viewedId = e.props.view.agentId
     await writeView($)
@@ -48,7 +59,7 @@ export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     const started = await next(e)
     sessionId = await $.session.id()
-    seen = await $.fs.read(seenFile()).then(JSON.parse, () => seen)
+    seen = { ...seen, ...(await $.fs.read(seenFile()).then(JSON.parse, () => ({}))) }
     let lastAgents: string | undefined
     $.clock.every(1000, async () => {
       const counts: Record<string, number> = {}

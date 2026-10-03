@@ -25,11 +25,15 @@ eval "$(echo "$data" | jq -r '
 
 # Models of running subagents: not interrupted, last assistant turn not end_turn, written in the last 5 min
 agents_file="/tmp/claude-agents-${session_id}"
-IFS=$'\t' read -r viewed_model viewed_effort 2>/dev/null < "/tmp/claude-view-${session_id}"
+IFS='|' read -r viewed_model viewed_effort v_in v_cw v_cr v_out 2>/dev/null < "/tmp/claude-view-${session_id}"
 if [ -n "$viewed_model" ]; then
-    model="⤷ ${viewed_model}"
+    model="↳ ${viewed_model}"
     effort="$viewed_effort"
     [ -n "$effort" ] || thinking=""
+    in_raw=${v_in:-0} cache_w=${v_cw:-0} cache_r=${v_cr:-0} last_out=${v_out:-0}
+    used_tokens=$((in_raw + cache_w + cache_r + last_out))
+    [[ $viewed_model == Haiku* ]] && window_size=200000
+    pct=$((window_size > 0 ? used_tokens * 100 / window_size : 0))
 fi
 if [ -f "$agents_file" ]; then
     sub_models=$(<"$agents_file")
