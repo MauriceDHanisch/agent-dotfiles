@@ -38,3 +38,11 @@ Write tests only when asked, in either mode. When you do:
 - Every E2E run ends with a verifiable, repeatable artifact: an output file, metrics JSON, log, plot, or screenshot, produced by one rerunnable command with fixed seeds and inputs.
 - Never write unit tests after the code exists. They only confirm what the code already does.
 - If a component must be tested in isolation, first list every way it can fail, then write tests for those failure modes, then write the code.
+
+## 7. Commits
+
+Match the repo's convention from `git log`. Default: Conventional Commits, `type(scope): summary`.
+
+- Subject: imperative, lowercase, no period, at most 72 characters, says what changed for a reader skimming the log.
+- Body only when the why is not obvious from the subject: one to three short plain sentences, wrapped at 72. No file lists, no change logs, no implementation narration.
+- One logical change per commit.
