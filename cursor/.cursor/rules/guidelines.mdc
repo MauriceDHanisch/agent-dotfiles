@@ -51,3 +51,4 @@ Match the repo's convention from `git log`. Default: Conventional Commits, `type
 - Subject: imperative, lowercase, no period, at most 72 characters, says what changed for a reader skimming the log.
 - Body only when the why is not obvious from the subject: one to three short plain sentences, wrapped at 72. No file lists, no change logs, no implementation narration.
 - One logical change per commit.
+- Write the commit command so it reads well when shown for approval: subject and body on separate lines (a heredoc or one `-m` per paragraph), never one long line.
