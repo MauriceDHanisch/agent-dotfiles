@@ -20,12 +20,13 @@ eval "$(echo "$data" | jq -r '
   @sh "in_raw=\(.context_window.current_usage.input_tokens // 0)",
   @sh "cache_w=\(.context_window.current_usage.cache_creation_input_tokens // 0)",
   @sh "cache_r=\(.context_window.current_usage.cache_read_input_tokens // 0)",
-  @sh "last_out=\(.context_window.current_usage.output_tokens // 0)"
+  @sh "last_out=\(.context_window.current_usage.output_tokens // 0)",
+  @sh "now_s=\(now | floor)"
 ')"
 
 # Models of running subagents: not interrupted, last assistant turn not end_turn, written in the last 5 min
 agents_file="/tmp/claude-agents-${session_id}"
-IFS='|' read -r viewed_model viewed_effort v_in v_cw v_cr v_out 2>/dev/null < "/tmp/claude-view-${session_id}"
+IFS='|' read -r viewed_model viewed_effort v_in v_cw v_cr v_out v_start 2>/dev/null < "/tmp/claude-view-${session_id}"
 if [ -n "$viewed_model" ]; then
     model="↳ ${viewed_model}"
     effort="$viewed_effort"
@@ -91,10 +92,35 @@ printf -v bar_fill '%*s' "$filled" ''
 bar_fill=${bar_fill// /━}
 printf -v bar_empty '%*s' "$empty" ''
 
+cache_file="/tmp/claude-cache-${session_id}"
+[ -f "$cache_file" ] && cache_start=$(<"$cache_file")
+[ -n "$viewed_model" ] && cache_start=$v_start
+cache_str=""
+if [ -n "$cache_start" ]; then
+    ttl=3600
+    [[ $(tail -c 200000 "$transcript" 2>/dev/null | grep -o 'ephemeral_[15][hm]_input_tokens":[1-9]' | tail -1) == ephemeral_5m* ]] && ttl=300
+    left=$((cache_start + ttl - now_s))
+    if [ "$left" -gt $((ttl / 2)) ]; then
+        ttl_color=$'\e[38;2;100;210;100m'
+    elif [ "$left" -gt $((ttl / 6)) ]; then
+        ttl_color=$'\e[38;2;220;120;40m'
+    else
+        ttl_color=$'\e[38;2;200;60;60m'
+    fi
+    if [ "$left" -ge 60 ]; then
+        cache_str="$((left / 60)) min"
+    elif [ "$left" -gt 0 ]; then
+        cache_str="${left} s"
+    else
+        cache_str="cold"
+    fi
+    cache_str=" ${DGREY}│${RESET} ${ttl_color}${cache_str}${RESET}"
+fi
+
 last_in=$((in_raw + cache_w + cache_r))
 last_str=""
 if [ "$last_in" -gt 0 ]; then
-    last_str=" ${DGREY}│${RESET} ${WHITE}last:${RESET} ${GREY}↑$(format_tokens "$last_in") ↓$(format_tokens "$last_out")${RESET} ${BLUE}$((cache_r * 100 / last_in))% cached${RESET}"
+    last_str=" ${DGREY}│${RESET} ${WHITE}last:${RESET} ${GREY}↑$(format_tokens "$last_in") ↓$(format_tokens "$last_out")${RESET} ${BLUE}$((cache_r * 100 / last_in))% cached${RESET}${cache_str}"
 fi
 
 # Build rate limit string with reset times

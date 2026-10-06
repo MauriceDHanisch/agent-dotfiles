@@ -40,10 +40,12 @@ export const register: Register = on => {
   })
 
   on('turn.step', async function* ($, e, next) {
+    const start = Math.floor(Date.now() / 1000)
     const step = yield* next(e)
     const u = step.usage
+    if (u && !e.agentId && sessionId) await $.fs.write(`/tmp/claude-cache-${sessionId}`, String(start))
     if (e.agentId && u) {
-      seen.usage[e.agentId] = [u.input_tokens, u.cache_creation_input_tokens, u.cache_read_input_tokens, u.output_tokens]
+      seen.usage[e.agentId] = [u.input_tokens, u.cache_creation_input_tokens, u.cache_read_input_tokens, u.output_tokens, start]
       await saveSeen($)
       await writeView($)
     }
