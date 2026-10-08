@@ -121,13 +121,20 @@
   },
   "enabledPlugins": {
     "agent-deck@agent-deck": true,
-    "cc-plugin-you-should-know@builtin": true
+    "cc-plugin-you-should-know@builtin": true,
+    "html-plan@claude-community": true
   },
   "extraKnownMarketplaces": {
     "agent-deck": {
       "source": {
         "source": "github",
         "repo": "asheshgoplani/agent-deck"
+      }
+    },
+    "claude-community": {
+      "source": {
+        "source": "github",
+        "repo": "anthropics/claude-plugins-community"
       }
     }
   },
